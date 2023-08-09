@@ -1,0 +1,3481 @@
+<!DOCTYPE html>
+<html lang='en'>
+
+  <head>
+
+    <meta name='keywords' content='Asp, Python, Script, Embedded'>
+    <link rel='stylesheet' href='styles.css'>
+
+    <title>Asp Internals &mdash; A Maintainer's Guide</title>
+
+  </head>
+
+  <body>
+
+    <center><big>Asp Scripting Platform</big></center>
+
+    <p>
+    <a href='index.html'>Other documents</a>
+    </p>
+
+    <hr>
+
+    <h1>Asp Internals &mdash; A Maintainer's Guide</h1>
+
+    <h2>Introduction</h2>
+
+    <p>
+    This document describes the design of the Asp scripting platform. The
+    engine, compiler, and application specification generator are all
+    described.
+    </p>
+
+    <h2>Overall architecture</h2>
+
+    <p>
+    The Asp scripting platform consists of a script compiler, an application
+    specification generator (used to describe functions with the application
+    that scripts can call), and a script execution engine, provided as a
+    library. 
+    </p>
+
+    <p>
+    To save space, variable names in scripts are converted to numbers. This
+    includes function names, both those defined in scripts, and those defined
+    in the application.
+    </p>
+
+    <p>
+    To ensure proper execution, a compatibility check between compiled code
+    and the engine's version and application specification is made prior to
+    running a script. If an error is encounter during the loading of a script,
+    the likely remedy is to recompile the script using the appropriate
+    compiler and application specification file.
+    </p>
+
+    <p>
+    All components of the platform are built using the CMake utility.
+    </p>
+
+    <h2>Engine</h2>
+
+    <p>
+    The implementation of the engine library resides in the
+    <span style='tt'>engine</span> directory of the source repository.
+    </p>
+
+    <p>
+    In the sections that follow, the topics discussed start with low-level
+    concepts, and then move onto higher level design elements. Data entries,
+    the specific way that data memory is organized, is the first topic. Then,
+    engine initialization is discussed, followed by a detailed treatment of
+    the various instructions supported by the engine. To wrap up, the
+    application programmer's interface (API) is covered.
+    </p>
+
+    <p>
+    The engine definition is split between two headers:
+    <span class='tt'>asp.h</span> (public) and
+    <span class='tt'>asp-priv.h</span> (private). Application programmers
+    can use declarations in the <span class='tt'>asp.h</span> header. Any
+    declaration found in <span class='tt'>asp-priv.h</span> should be
+    considered off limits to application code.
+    </p>
+
+    <p>
+    The <code>Engine</code> structure, which defines all things concerning an
+    engine instance, is defined in the private
+    <span class='tt'>asp-priv.h</span> header, and includes:
+    </p>
+
+    <ul>
+      <li>
+      engine state,
+      </li>
+      <li>
+      header index (used when reading the script's header),
+      </li>
+      <li>
+      code version (from the code header),
+      </li>
+      <li>
+      code and program counter,
+      </li>
+      <li>
+      data entries,
+      </li>
+      <li>
+      free count, low free count, free list index (for getting the next free
+      data entry),
+      </li>
+      <li>
+      pointers to singleton entries (<code>None</code>, <code>False</code>,
+      and <code>True</code>),
+      </li>
+      <li>
+      a pointer to the run-time stack,
+      </li>
+      <li>
+      a list of modules and a pointer to the system module (<code>sys</code>),
+      </li>
+      <li>
+      current namespaces (system, global and local),
+      </li>
+      <li>
+      a pointer to application specification data, and
+      </li>
+      <li>
+      values associated with the <q>again</q> feature of application function
+      calls (the <q>again</q> flag, current application function symbol,
+      application function namespace, and application function return value).
+      </li>
+    </ul>
+
+    <p>
+    The engine is implemented entirely in C and is built as a library which is
+    linked into an application to support script execution.
+    </p>
+
+    <h3>Data entries</h3>
+
+    <p>
+    Data memory is divided up into fixed-sized slots called data entries. Each
+    entry occupies 16 bytes and holds either four 28&#8209;bit words, an
+    integer or floating-point value, or for string fragment entries, up to 14
+    characters of string data. The type of each entry, <code>T</code>,
+    determines the layout used. The structure definition produces a different
+    layout of the 28&#8209;bit words depending on whether the target machine
+    is big-endian or little-endian. It looks like this.
+    </p>
+
+    <table class='fixed'>
+      <tr>
+        <td class='fixed' style='text-align: right;'>Byte address:</td>
+        <td class='fixed' colspan='2' style='width: 2em;'>0</td>
+        <td class='fixed' colspan='2' style='width: 2em;'>1</td>
+        <td class='fixed' colspan='2' style='width: 2em;'>2</td>
+        <td class='fixed' colspan='2' style='width: 2em;'>3</td>
+        <td class='fixed' colspan='2' style='width: 2em;'>4</td>
+        <td class='fixed' colspan='2' style='width: 2em;'>5</td>
+        <td class='fixed' colspan='2' style='width: 2em;'>6</td>
+        <td class='fixed' colspan='2' style='width: 2em;'>7</td>
+        <td class='fixed' colspan='2' style='width: 2em;'>8</td>
+        <td class='fixed' colspan='2' style='width: 2em;'>9</td>
+        <td class='fixed' colspan='2' style='width: 2em;'>10</td>
+        <td class='fixed' colspan='2' style='width: 2em;'>11</td>
+        <td class='fixed' colspan='2' style='width: 2em;'>12</td>
+        <td class='fixed' colspan='2' style='width: 2em;'>13</td>
+        <td class='fixed' colspan='2' style='width: 2em;'>14</td>
+        <td class='fixed' colspan='2' style='width: 2em;'>15</td>
+      </tr> 
+      <tr>
+        <td class='fixed' style='text-align: right;'>BE Word Layout:</td>
+        <td class='fixed' style='width: 1em;'><code>B</code></td>
+        <td class='fixed' colspan='7' style='width: 7em;'>
+        <code>Word0</code>
+        </td>
+        <td class='fixed'
+          style='width: 1em; background-color: LightGrey;'>
+        </td>
+        <td class='fixed' colspan='7' style='width: 7em;'>
+        <code>Word1</code>
+        </td>
+        <td class='fixed' style='width: 1em'><code>H</code></td>
+        <td class='fixed' colspan='7' style='width: 7em;'>
+        <code>Word2[0-23]</code><br><code>UC</code>
+        </td>
+        <td class='fixed' colspan='6' style='width: 6em;'>
+        <code>Word3[0-23]</code>
+        </td>
+        <td class='fixed' colspan='2' style='width: 2em;'>
+        <code>T</code>
+        </td>
+      </tr>
+      <tr>
+        <td class='fixed' style='text-align: right;'>LE Word Layout:</td>
+        <td class='fixed' colspan='6' style='width: 6em;'>
+        <code>Word0[0-23]</code>
+        </td>
+        <td class='fixed' style='width: 1em;'><code>B</code></td>
+        <td class='fixed' style='width: 1em;'><code>X</code></td>
+        <td class='fixed' colspan='6' style='width: 6em;'>
+        <code>Word1[0-23]</code>
+        </td>
+        <td class='fixed'
+          style='width: 1em; background-color: LightGrey;'>
+        </td>
+        <td class='fixed' style='width: 1em;'><code>Y</code></td>
+        <td class='fixed' colspan='6' style='width: 6em;'>
+        <code>Word2[0-23]</code><br><code>UC</code>
+        </td>
+        <td class='fixed' style='width: 1em;'><code>H</code></td>
+        <td class='fixed' style='width: 1em;'><code>Z</code></td>
+        <td class='fixed' colspan='6' style='width: 6em;'>
+        <code>Word3[0-23]</code>
+        </td>
+        <td class='fixed' colspan='2' style='width: 2em;'><code>T</code></td>
+      </tr>
+      <tr>
+        <td class='fixed' style='text-align: right;'>Integer Layout:</td>
+        <td class='fixed' colspan='8' style='width: 8em;'>Integer</td>
+        <td class='fixed' colspan='22'
+          style='width: 22em; background-color: LightGrey;'>
+        </td>
+        <td class='fixed' colspan='2' style='width: 2em;'><code>T</code></td>
+      </tr>
+      <tr>
+        <td class='fixed' style='text-align: right;'>Float Layout:</td>
+        <td class='fixed' colspan='16' style='width: 16em;'>
+        Double-precision float
+        </td>
+        <td class='fixed' colspan='14'
+          style='width: 14em; background-color: LightGrey;'>
+        </td>
+        <td class='fixed' colspan='2' style='width: 2em;'><code>T</code></td>
+      </tr>
+      <tr>
+        <td class='fixed' style='text-align: right;'>Byte address:</td>
+        <td class='fixed' colspan='2' style='width: 2em;'>
+        <code>C</code>
+        </td>
+        <td class='fixed' colspan='2' style='width: 2em;'>
+        <code>S0</code>
+        </td>
+        <td class='fixed' colspan='2' style='width: 2em;'>
+        <code>S1</code>
+        </td>
+        <td class='fixed' colspan='2' style='width: 2em;'>
+        <code>S2</code>
+        </td>
+        <td class='fixed' colspan='2' style='width: 2em;'>
+        <code>S3</code>
+        </td>
+        <td class='fixed' colspan='2' style='width: 2em;'>
+        <code>S4</code>
+        </td>
+        <td class='fixed' colspan='2' style='width: 2em;'>
+        <code>S5</code>
+        </td>
+        <td class='fixed' colspan='2' style='width: 2em;'>
+        <code>S6</code>
+        </td>
+        <td class='fixed' colspan='2' style='width: 2em;'>
+        <code>S7</code>
+        </td>
+        <td class='fixed' colspan='2' style='width: 2em;'>
+        <code>S8</code>
+        </td>
+        <td class='fixed' colspan='2' style='width: 2em;'>
+        <code>S9</code>
+        </td>
+        <td class='fixed' colspan='2' style='width: 2em;'>
+        <code>S10</code>
+        </td>
+        <td class='fixed' colspan='2' style='width: 2em;'>
+        <code>S11</code>
+        </td>
+        <td class='fixed' colspan='2' style='width: 2em;'>
+        <code>S12</code>
+        </td>
+        <td class='fixed' colspan='2' style='width: 2em;'>
+        <code>S13</code>
+        </td>
+        <td class='fixed' colspan='2' style='width: 2em;'>
+        <code>T</code>
+        </td>
+      </tr> 
+    </table>
+
+    <p>
+    The 28&#8209;bit words are used for code and data addresses. Code
+    addresses are byte addresses, whereas data addresses refer to the index of
+    a data entry. Regardless of the machine's byte-order, accessing words 0,
+    1, and 2 is straightforward; only the high-order 4 bits of a 32&#8209;bit
+    value need to be avoided. In the diagram, <code>X</code> represents bits
+    24&ndash;27 of word 0. Likewise, <code>Y</code> belongs to word 1 and
+    <code>Z</code> belongs to word 2. Accessing word 3 requires combining the
+    lower 24 bits in bytes 12&ndash;14 with the high-order nibble,
+    <code>H</code>, in byte 8 or 11, depending on the byte-order.
+    </p>
+
+    <p>
+    The 4&#8209;bit <code>B</code> field is used for single-bit flags. No more
+    than 4 flags per entry have been defined at this time. If more are needed,
+    there are another 4 spare bits available in the high-order nibble of byte
+    4 (big-endian) or 7 (little-endian) (i.e., the high-order 4 bits of the
+    word in bytes 4&ndash;7).
+    </p>
+
+    <p>
+    Integer entries hold a single 32&#8209;bit signed integer, and float
+    entries hold a double-precision (64&#8209;bit) floating-point value,
+    typically IEEE 754 <q>binary64</q> format. String fragments hold up to 14
+    bytes of character data in <code>S0</code>, <code>S1</code>, &hellip;,
+    <code>S13</code>. The actual number of bytes used is stored in the
+    1&#8209;byte count field, <code>C</code>. String data in Asp are not
+    null-terminated. A type entry stores a type value in the count field.
+    </p>
+
+    <p>
+    A data entry can represent either an object or an internal entry. Objects
+    are the entries that scripts can refer to directly, whereas internal
+    entries are used by the engine to implement internal structures. The main
+    difference to the layout is that objects have a use count,
+    <code>UC</code>, which is stored in word 2. (More on use counts below.) An
+    object's type, <code>T</code>, is limited to the range 0&ndash;0x3F, or 7
+    bits. Here are the object types.
+    </p>
+
+    <table>
+      <tr>
+        <th rowspan='2'>Type name</th>
+        <th rowspan='2'>Type value</th>
+        <th colspan='9'>Fields used</th>
+      </tr>
+      <tr>
+        <th class='vertical'>Flags (<code>B</code>)</th>
+        <th class='vertical'><code>Word0</code></th>
+        <th class='vertical'><code>Word1</code></th>
+        <th class='vertical'><code>Word2</code> (<code>UC</code>)</th>
+        <th class='vertical'><code>Word3</code></th>
+        <th class='vertical'>Integer</th>
+        <th class='vertical'>Float</th>
+        <th class='vertical'>Count (<code>C</code>)</th>
+        <th class='vertical'>String (<code>S*</code>)</th>
+      </tr>
+      <tr>
+        <td>None</td>
+        <td style='text-align: center;'><code>0x00</code></td><td></td>
+        <td></td><td></td><td>&check;</td><td></td>
+        <td></td><td></td><td></td><td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>Ellipsis</td>
+        <td style='text-align: center;'><code>0x01</code></td><td></td>
+        <td></td><td></td><td>&check;</td><td></td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>Boolean</td>
+        <td style='text-align: center;'><code>0x02</code></td><td>1</td>
+        <td></td><td></td><td>&check;</td><td></td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>Integer</td>
+        <td style='text-align: center;'><code>0x03</code></td><td></td>
+        <td></td><td></td><td>&check;</td><td></td>
+        <td>&check;</td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>Float</td>
+        <td style='text-align: center;'><code>0x04</code></td><td></td>
+        <td></td><td></td><td>&check;</td><td></td>
+        <td></td><td>&check;</td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>Range</td>
+        <td style='text-align: center;'><code>0x07</code></td><td>3</td>
+        <td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>String</td>
+        <td style='text-align: center;'><code>0x08</code></td><td></td>
+        <td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>Tuple</td>
+        <td style='text-align: center;'><code>0x09</code></td><td></td>
+        <td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>List</td>
+        <td style='text-align: center;'><code>0x0A</code></td><td></td>
+        <td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>Set</td>
+        <td style='text-align: center;'><code>0x0B</code></td><td></td>
+        <td>&check;</td><td>&check;</td><td>&check;</td><td></td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>Dictionary</td>
+        <td style='text-align: center;'><code>0x0D</code></td><td></td>
+        <td>&check;</td><td>&check;</td><td>&check;</td><td></td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>Iterator</td>
+        <td style='text-align: center;'><code>0x0E</code></td><td>1</td>
+        <td>&check;</td><td>&check;</td><td>&check;</td><td></td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>Function</td>
+        <td style='text-align: center;'><code>0x0F</code></td><td>1</td>
+        <td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>Module</td>
+        <td style='text-align: center;'><code>0x10</code></td><td>1</td>
+        <td>&check;</td><td>&check;</td><td>&check;</td><td></td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>Type</td>
+        <td style='text-align: center;'><code>0x1F</code></td><td></td>
+        <td></td><td></td><td>&check;</td><td></td>
+        <td></td><td></td><td>&check;</td><td></td>
+      </tr>
+    </table>
+
+    <p>
+    Internal types are used to support data structures. For example, the main
+    entry for a list is represented by the List type (an object), but words 0
+    and 1 of this entry point to the head and tail Elements entries of the
+    list (internal entries), respectively. Internal types do not have a use
+    count, so word 2 is free to be used for other purposes. An internal
+    entries' type must be 0x20 or greater. Here are the internal types.
+
+    <table>
+      <tr>
+        <th rowspan='2'>Type name</th>
+        <th rowspan='2'>Type value</th>
+        <th colspan='9'>Fields used</th>
+      </tr>
+      <tr>
+        <th class='vertical'>Flags (<code>B</code>)</th>
+        <th class='vertical'><code>Word0</code></th>
+        <th class='vertical'><code>Word1</code></th>
+        <th class='vertical'><code>Word2</code></th>
+        <th class='vertical'><code>Word3</code></th>
+        <th class='vertical'>Integer</th>
+        <th class='vertical'>Float</th>
+        <th class='vertical'>Count (<code>C</code>)</th>
+        <th class='vertical'>String (<code>S*</code>)</th>
+      </tr>
+        <td>Code Address</td>
+        <td style='text-align: center;'><code>0x40</code></td><td></td>
+        <td>&check;</td><td></td><td></td><td></td>
+        <td>&nbsp;</td><td>&nbsp;</td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>Stack Entry</td>
+        <td style='text-align: center;'><code>0x50</code></td><td>2</td>
+        <td>&check;</td><td>&check;</td><td>&check;</td><td></td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>Frame</td>
+        <td style='text-align: center;'><code>0x52</code></td><td></td>
+        <td>&check;</td><td>&check;</td><td>&check;</td><td></td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>Element</td>
+        <td style='text-align: center;'><code>0x62</code></td><td></td>
+        <td>&check;</td><td>&check;</td><td>&check;</td><td></td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>String Fragment</td>
+        <td style='text-align: center;'><code>0x64</code></td><td></td>
+        <td></td><td></td><td></td><td></td>
+        <td></td><td></td><td>&check;</td><td>&check;</td>
+      </tr>
+      <tr>
+        <td>Key/Value Pair</td>
+        <td style='text-align: center;'><code>0x66</code></td><td></td>
+        <td></td><td>&check;</td><td>&check;</td><td></td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>Namespace</td>
+        <td style='text-align: center;'><code>0x70</code></td><td>3</td>
+        <td>&check;</td><td>&check;</td><td></td><td></td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>Set Node</td>
+        <td style='text-align: center;'><code>0x74</code></td><td>1</td>
+        <td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>Dictionary Node</td>
+        <td style='text-align: center;'><code>0x78</code></td><td>1</td>
+        <td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>Namespace Node</td>
+        <td style='text-align: center;'><code>0x7C</code></td><td>1</td>
+        <td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>Tree Links Node</td>
+        <td style='text-align: center;'><code>0x7D</code></td><td></td>
+        <td></td><td>&check;</td><td>&check;</td><td></td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>Parameter</td>
+        <td style='text-align: center;'><code>0x80</code></td><td>2</td>
+        <td>&check;</td><td>&check;</td><td></td><td></td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>Parameter List</td>
+        <td style='text-align: center;'><code>0x81</code></td><td></td>
+        <td>&check;</td><td>&check;</td><td></td><td>&check;</td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>Argument</td>
+        <td style='text-align: center;'><code>0x82</code></td><td>2</td>
+        <td>&check;</td><td>&check;</td><td></td><td></td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>Argument List</td>
+        <td style='text-align: center;'><code>0x83</code></td><td></td>
+        <td>&check;</td><td>&check;</td><td></td><td>&check;</td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>Free Entry</td>
+        <td style='text-align: center;'><code>0xFF</code></td><td></td>
+        <td>&check;</td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+    </table>
+
+    <p>
+    The <span class='tt'>data.h</span> header defines several macros for
+    accessing the various fields within each type of data entry. These macros
+    use bit extraction definitions which can be found in
+    <span class='tt'>bits.h</span>. The following sections describe some of
+    the more complex data entries in more detail. Others are covered in
+    subsequent sections.
+    </p>
+
+    <h4>Reference counting</h4>
+
+    <p>
+    As mentioned above, objects have a reference count, which is always stored
+    in word 2 of the data entry. When an object is created, the count is set
+    to 1. The <code>AspRef</code> and <code>AspUnref</code> routines
+    (<span class='tt'>ref.c</sna>) are used to increment and decrement the use
+    count, respectively. When an object's use count drops to zero, the entry
+    is freed, changing its type to Free Entry and adding it to the free list.
+    </p>
+
+    <p>
+    Freeing an entry implies decrementing the use count for any referenced
+    object entries. So, un-referencing an object is a recursively defined
+    operation. However, use of recursion in the implementation of the Asp
+    engine is avoided by employing an iterative approach, which uses the
+    data entry stack. See the section on
+    <a href='#RecursionAvoidance'>recursion avoidance</a> for details.
+    </p>
+
+    <h4 id='Singletons'>Singletons</h4>
+
+    <p>
+    Because all <code>None</code> objects look alike, there is no need to
+    store more than one of them. Therefore, the engine reserves the first data
+    entry as a <code>None</code> entry. Any time a <code>None</code> object is
+    <q>created</q>, the use count of the <code>None</code> singleton entry is
+    simply incremented, and the index of its entry is used to refer to it.
+    Since <code>None</code> objects are used in many situations, this can save
+    on data memory utilization.
+    </p>
+
+    <p>
+    The same logic applies to <code>False</code> and <code>True</code>
+    objects, but in these cases, the engine does not allocate singletons for
+    them during initialization. Instead, the first time a <code>False</code>
+    object is <q>created</q>, if no <code>False</code> singleton (a Boolean
+    entry) exists, it is allocated, and its reference is stored in the engine
+    structure. Subsequent new <code>False</code> objects use the same
+    reference, incrementing its use count. If the last <code>False</code>
+    object is <q>destroyed</q>, the entry is reclaimed to the free list. The
+    same rules apply to <code>True</code> objects as well.
+    </p>
+
+    <h4>Stack</h4>
+
+    <p>
+    The Asp engine uses a run-time stack in much the same way that real
+    machines do.
+    </p>
+
+    <img src='stack.png' class='center' width='50%'>
+
+    <p>
+    Stack support routines are defined in <span class='tt'>stack.c</span>, and
+    include <code>AspPush</code>, <code>AspTopValue</code>, and
+    <code>AspPop</code>. Pushing an item onto the stack increases its use
+    count (if it is an object); popping an item decrements it, potentially
+    causing the item to be freed. Accessing the top item via
+    <code>AspTopValue</code> does not increase the use count; the caller is
+    responsible for doing so if needed.
+    </p>
+
+    <p>
+    The Stack Entry contains the address of the previous entry in the stack in
+    word 0 (which is zero for the bottom entry). A pointer in the engine
+    structure points to the top entry (null if the stack is empty). The Stack
+    Entry also contains the address of the value in word 1, which may be an
+    object or an internal type.
+    </p>
+
+    <p>
+    Additional routines are available to assist the logic of recursion
+    avoidance. These routines (<code>AspPushNoPush</code> and
+    <code>AspPopNoErase</code>) do not touch the use count. Some of the
+    recursion avoidance implementations make use of a second value referenced
+    by the Stack Entry (word 2) and some flags (not shown in the diagram). See
+    the section on <a href='#RecursionAvoidance'>recursion avoidance</a> for
+    more details.
+    </p>
+
+    <h4>Range entry</h4>
+
+    <p>
+    A range consists of three integer values: start, end, and step. There is
+    not enough space in a data entry to store 3 32&#8209;bit integers, so the
+    range entry points to 3 other data entries (of integer type) where the
+    actual values are kept.
+    </p>
+
+    <img src='range.png' class='center' width='45%'>
+
+    <p>
+    The index of the start entry is stored in word 0, end is in word 1, and
+    step is in word 3. The use count is in word 2, as it is with all object
+    entries. This arrangement takes up a lot of data memory (4 entries). To
+    alleviate the situation, default values for each of the integer values can
+    be indicated with a bit for each in the range entry. When the applicable
+    bit is set, the associated integer value is not needed, and the index
+    value for it is set to zero (but otherwise ignored).
+    </p>
+
+    <h4>Sequences</h4>
+
+    <p>
+    Sequences include tuples, lists, and strings, and are all implemented in a
+    similar fashion using doubly linked lists. Most of the implementation for
+    sequences is in <span class='tt'>sequence.c</span>.
+    </p>
+
+    <img src='sequence.png' class='center' width='60%'>
+
+    <p>
+    In the above diagram, <q>Sequence</q> stands for one of String, Tuple,
+    List, Parameter List, or Argument List. This entry contains the element
+    count (or for strings, the string's character count) in word 3 and the
+    addresses of the head and tail elements in words 0 and 1. The Element
+    entry contains the address of a value in word 2 and the addresses of the
+    next and previous elements in words 0 and 1. The <q>Item</q> type depends
+    on the sequence type. For Tuple and List sequences, it is an object of any
+    type. On the other hand, Strings contain String Fragments, Parameter Lists
+    contain Parameters, and Argument Lists contain Arguments.
+    </p>
+
+    <p>
+    In the case of String Fragments, the entry directly stores up to 14 bytes
+    of string data, plus a single-byte count of the number of bytes in the
+    fragment.
+    </p>
+
+    <p>
+    Parameters contain the parameter's symbol in word 0. A bit flag indicates
+    whether the parameter has a default value, and if so, its index is in word
+    1. There is also a bit flag that indicates whether the parameter is a
+    group (e.g. <code>*args</code>).
+    </p>
+
+    <p>
+    Arguments contain an index to the value in word 1. If the argument is
+    named, this is indicated by a bit flag and the symbol of the name is in
+    word 0. Like Parameters, another bit flag is used to indicate whether the
+    argument is a tuple group.
+    </p>
+
+    <p>
+    Many of the sequence routines make use of a <code>AspListResult</code>
+    structure type. This structure contains an <code>AspRunResult</code> plus
+    two data entry pointers, one for the element and the other for the value.
+    </p>
+
+    <p>
+    Iterators are used to traverse sequences (among other things). See the
+    section on <a href='#Iterators'>iterators</a> for details. When freeing a
+    sequence (due to un-referencing to a use count of zero), the un-reference
+    logic traverses the sequence, freeing all the Element entries, and
+    decrementing the use count of any object, or freeing non-object items. Of
+    course, this means that if an object's use count is reduced to zero, it
+    must also be freed, leading to a recursive definition. See the section on
+    <a href='#RecursionAvoidance'>recursion avoidance</a> for an explanation
+    of how sequences are un-referenced without the use of recursion.
+    </p>
+
+    <h4>Trees</h4>
+
+    <p>
+    Sets, dictionaries and namespaces are implemented using red-black trees
+    (not hash tables as in Python). The implementation resides in
+    <span class='tt'>tree.c</span>. The red-black balancing logic is based
+    upon the algorithms described in <cite>Introduction to Algorithms</cite>
+    by Thomas H. Cormen, et al., 3rd edition.
+    </p>
+
+    <p>
+    The top-level data entry that represents the entire tree contains a count
+    of the number of keys in word 0, and the index of the root node in word 1.
+    The tree structure for sets is simpler than that of dictionaries and
+    namespaces since it contains only keys.
+    </p>
+
+    <img src='set.png' class='center' width='70%'>
+
+    <p>
+    For sets, nodes contain an index of the parent node in word 1, and indices
+    of the left and right child nodes in words 2 and 3. The index of the key
+    object is stored in word 0.
+    </p>
+
+    <p>
+    Because each data entry can only store up to four 28&#8209;bit words, and
+    because dictionaries and namespaces have both keys and values, a slightly
+    more complex arrangement is needed.
+    </p>
+
+    <img src='tree.png' class='center' width='70%'>
+
+    <p>
+    For dictionaries, the node contains indices to the key in word 0, and to
+    the value in word 3. The index to the parent node is in word 1. An
+    additional Links entry, whose index is stored in word 2 of the node,
+    carries the indices of the left and right child nodes in words 1 and 2.
+    </p>
+
+    <p>
+    A namespace is nearly identical in arrangement to the dictionary. The only
+    difference is that instead of storing the index of a key object, a symbol
+    value is stored in word 0 instead.
+    </p>
+
+    <p>
+    Many of the tree routines make use of a <code>AspTreeResult</code>
+    structure type. This structure contains an <code>AspRunResult</code> plus
+    three data entry pointers, one for the node, and the other two for the key
+    and value (if applicable).
+    </p>
+
+    <p>
+    Iterators are used to traverse trees (among other things). See the section
+    on <a href='#Iterators'>iterators</a> for details. When freeing a tree
+    (due to un-referencing to a use count of zero), the un-reference logic
+    traverses the tree, freeing all the Node and Link entries, and
+    decrementing the use count of any key or value objects. Of course, this
+    means that if an object's use count is reduced to zero, it must also be
+    freed, leading to a recursive definition. See the section on
+    <a href='#RecursionAvoidance'>recursion avoidance</a> for an explanation
+    of how trees are un-referenced without the use of recursion.
+    </p>
+
+    <h4 id='Iterators'>Iterators</h4>
+
+    <p>
+    Iterators are used to traverse through a range of values defined by one of
+    the following items: range, sequence (including a string), set, or
+    dictionary<a href='#Note-NoNamespaceIterator'><sup>*</sup></a>. This
+    object is referred to as the iterable, and an index to it is stored in
+    word 0 of the Iterator entry. The value stored in word 1 depends on the
+    iterable; each type is explained below.
+    </p>
+
+    <p>
+    For sequence iterators, word 1 is an index to the Element entry, making it
+    possible to access the value (to dereference the iterator) and the next
+    element (for advancing the iterator).
+    </p>
+
+    <p>
+    For iterators that refer to a tree structure, the arrangement is similar.
+    Word 1 is an index of the Node entry in this case.
+    </p>
+
+    <p>
+    String iterators are a special case of sequence iterators. Word 1 is still
+    an index to the Element entry, but there is an additional 8&#8209;bit
+    field (<code>S11</code>, within word 3) used to keep track of the current
+    character within the current String Fragment entry.
+    </p>
+
+    <p>
+    Finally, range iterators require the creation of an integer to maintain
+    the current value. An index to this integer is stored in word 1 as
+    expected, but because the integer is considered part of the iterator (not
+    part of the iterable), it must be cleaned up when the iterator is freed.
+    Therefore, a bit flag is set to indicate the need for cleanup. The integer
+    is cleaned up either when the iterator is advanced to the end of the
+    range, or in the un-reference logic if the iterator is dropped before that
+    happens.
+    </p>
+
+    <blockquote id='Note-NoNamespaceIterator'><sup>*</sup><small>
+    Namespaces are not listed here only because they are not objects. If, in a
+    future version of Asp, namespaces become objects, iteration would be
+    supported since it is generic to all tree structures.
+    </small></blockquote>
+
+    <h4>Functions and modules</h4>
+
+    <p>
+    A function definition is stored in a Function entry. A bit flag is used to
+    distinguish between script-defined functions and application functions.
+    For script-defined functions, word 0 contains the code address (a byte
+    offset into the code block). For application functions, word 0 contains
+    the symbol of the function and is used in the application function
+    dispatch logic to find the correct C function to call. An index to the
+    function's Parameter List entry is stored in word 3.
+    </p>
+
+    <p>
+    Each function belongs to a module, either the script module in which it
+    was defined, or the <code>sys</code> module for application functions. An
+    index to the Module entry is stored in word 1.
+    </p>
+
+    <p>
+    Each module is represented by a Module entry, including the
+    <code>sys</code> module. For script modules, the code entry point is
+    stored in word 0. A bit flag indicates whether the module has been loaded
+    (i.e., executed as the result of an <code>import</code> statement). Word 1
+    contains an index of the Namespace entry where the module's global
+    variables are stored.
+    </p>
+
+    <p>
+    Variables local to a function require the use of a Frame entry, which is
+    created and pushed onto the run-time stack during the process of a
+    function call. The Frame entry contains an index to the local Namespace
+    entry in word 2, and an index of the applicable Module entry in word 1
+    (for global variables). Word 0 contains the return address, an index into
+    the code block.
+    </p>
+
+    <h4 id='RecursionAvoidance'>Recursion avoidance</h4>
+
+    <p>
+    There are several algorithms that are part of Asp's engine implementation
+    that are defined recursively. To avoid recursion (so as not to use an
+    undefined amount of the application's run-time stack), the Asp engine's
+    run-time stack is used instead, and the algorithm is converted into
+    iteration. If, during an iteration, the stack grows to consume all the
+    engine's data memory, an error is flagged, and the script aborts, but no
+    ill affects to the application's run-time stack are incurred. This logic
+    applies to un-referencing objects, object comparison, checking objects for
+    suitability as keys, sequence assignment, and conversion of objects into
+    strings.
+    </p>
+
+    <p>
+    The general implementation approach is as follows. First, the pointer to
+    the top of the engine's stack is stored in a local variable, which we will
+    refer to as the starting stack position. Then a loop processes the item(s)
+    of interest, pushing any work that must be deferred onto the stack using
+    the <code>AspPushNoUse</code> routine (so that use counts are not
+    affected). In some cases, use of the secondary value of a stack entry is
+    also used. At the end of the loop iteration, a check is made to determine
+    whether the current stack pointer is the same as the saved starting
+    position (or if an error has occurred) upon which the loop is exited. In
+    the case that no error has occurred, but the stack pointer has not
+    returned to its starting position, the applicable values are popped off
+    the stack using <code>AspPopNoErase</code>, and the loop is iterated once
+    more. Each algorithm mentioned above has slight variations on this theme,
+    as detailed below.
+    </p>
+
+    <p>
+    First, let's tackle un-referencing objects, implemented in
+    <span class='tt'>ref.c</span>. During each iteration, an object's
+    reference count is decremented and checked for reaching zero. If it has
+    (or if the entry is not an object), the entry must be freed. For simple
+    entries like integers, this is straightforward, and the freeing is
+    performed immediately. However, for more complex objects like sequences
+    and trees, each item in the collection is visited and dealt with. First,
+    the element or node and/or links entry is/are freed, ensuring that it
+    would be impossible to run out of data memory during the next step. Next,
+    each referenced object's reference count is decremented, and if zero, the
+    object is either freed immediately (if simple) or deferred by pushing its
+    index onto the stack. When handling trees, if both key and value must be
+    deferred, the secondary stack entry value is used to ensure the engine
+    doesn't run out of data space.
+    </p>
+
+    <p>
+    Next, we turn to object comparison. Objects are compared in three
+    contexts: equality, relational, and as keys. All comparisons are handled
+    in one routine, <code>AspCompare</code>, defined in
+    <span class='tt'>compare.c</span>. When comparing like collections,
+    respective objects are compared. Note that for equality tests, the
+    entirety of the structures must be visited, whereas for relational and key
+    comparison, the first case of inequality ends the comparison. If a final
+    determination can be made, no further work is necessary. Otherwise (for
+    more complex objects), several things are pushed onto the stack to
+    continue the comparison: first the indices of the collections themselves,
+    then the indices of the current elements/nodes, and finally the indices of
+    the values. Since there are two of each of these items, both stack
+    entries' values are used, so instead of taking six Stack Entries, this
+    operation takes only three. The order of items pushed onto the stack
+    ensures that comparison is performed depth first. After the values are
+    compared (with possible more <q>recursion</q>), the tail end of the loop
+    iteration will pop the elements or nodes, which triggers the popping of
+    the matching collections. With both collections and current elements/nodes
+    in hand, the comparison logic can advance to the next items in the
+    collections.
+    </p>
+
+    <p>
+    If, during a comparison, the final result is ascertained early (due to
+    non-equality), there may still be items on the stack. In this case, after
+    the loop exits (and assuming no error has occurred), the stack is unwound
+    by popping items off (with <code>AspPopNoErase</code>) until the engine's
+    stack pointer is equal to the saved starting position.
+    </p>
+
+    <p>
+    Another area of recursively defined algorithm is in the
+    <code>AspCheckIsImmutableObject</code> routine, defined in
+    <span class='tt'>data.c</span>, which checks whether an object would be
+    suitable for use as a key (i.e., in a set or dictionary). The only case in
+    which this comes up is for tuples, since all other recursively defined
+    data structures are mutable and therefore cannot be used as keys. When
+    processing a tuple within the loop, all the elements are visited and
+    checked. If any sub-tuples are encountered, they are deferred by pushing
+    them onto the stack. This defines a breadth-first traversal because order
+    does not matter; we're only looking for a binary answer. If a non-suitable
+    object is encountered, the loop is exited, and then the stack is unwound
+    if needed. If the loop exits because there's no more work to do, the
+    object is immutable and the unwind logic has nothing to do.
+    </p>
+
+    <p>
+    To support sequence assignment with sequences of arbitrary depth, the same
+    technique is used to avoid recursion. See <code>AspAssignSequence</code>
+    in <span class='tt'>assign.c</span>. During a sequence assignment, nested
+    sequences are pushed onto the stack to be processed after the current
+    sequence traversal has been completed. Only one stack entry per nested
+    sequence is used. The value (right side) is pushed in the normal way, and
+    the address (left side) is assigned to the secondary stack entry value.
+    There is no need to unwind the stack at the end since all items must be
+    visited.
+    </p>
+
+    <p>
+    The final area to explore is conversion of objects to string via
+    <code>AspToString</code>, defined in <span class='tt'>api.c</span>. This
+    is a depth-first traversal like comparison. However, since only one item
+    is under consideration (rather than two in the case of comparison), in the
+    case of sequences and trees, the iterator and collection are stored in the
+    same Stack Entry, while the value is pushed as a separate entry. Since the
+    entire structure is normally traversed, stack unwinding is not normally
+    needed. However, it will still occur in the case of an error during
+    conversion (like out of data memory).
+    </p>
+
+    <h3>Initialization</h3>
+
+    <p>
+    With the preceding detailed discussion of the data area, we now have
+    enough information to describe engine start-up and instruction stepping.
+    </p>
+
+    <h4 id='EngineInitialization'>Engine initialization</h4>
+
+    <p>
+    To initialize the engine, the application calls
+    <code>AspInitialize</code>, defined in <span class='tt'>engine.c</span>.
+    This initializes several members of the passed <code>Engine</code>
+    structure and then calls <code>AspReset</code>, which initializes a few
+    more members, and then calls a local routine called
+    <code>ResetData</code>. The <code>ResetData</code> function performs
+    several tasks, as described below.
+    </p>
+
+    <p>
+    The first job of <code>ResetData</code> is to call
+    <code>AspClearData</code> (<span class='tt'>data.c</span>) to completely
+    clear the data area, setting each data entry to a Free Entry. The Free
+    Entries form a singly linked list (the free list), with the index of the
+    first entry being stored in the <code>Engine</code> structure. Later, when
+    <code>AspAlloc</code> is called to allocate an entry, it uses this free
+    list index to identify the next available entry, and then updates it to
+    the next one in line.
+    </p>
+
+    <p>
+    Next, the first data entry is reserved as a singleton <code>None</code>
+    value, as previously mentioned in the section on
+    <a href='#Singletons'>singletons</a>. Only one <code>None</code> entry is
+    present in the system. Every time a <code>None</code> value is
+    <q>created</q>, the use count of the <code>None</code> singleton entry is
+    incremented. If there are no bugs in the compiler, the generated code
+    should never reduce the use count of the <code>None</code> singleton entry
+    to zero.
+    </p>
+
+    <p>
+    Singletons are also maintained for the <code>False</code> and
+    <code>True</code> values, but as previously mentioned, these are not
+    initially allocated. So, the pointers in the <code>Engine</code> structure
+    for these two singletons are initialized to null and are updated later when
+    Boolean values are created. The data area will only ever have at most one
+    <code>False</code> value and one <code>True</code> value, but if either
+    one's use count is reduced to zero, the engine's pointers are reinitialized
+    to null.
+    </p>
+
+    <p>
+    The next things to initialize are the run-time stack pointer and count,
+    and the modules index (a namespace). This is where Module entries are
+    organized by symbol. The first of these is the <code>sys</code> module,
+    which is now created (along with its own empty namespace) and added into
+    the collection using the reserved symbol value of 0. There are pointers in
+    the <code>Engine</code> structure that point to the <code>sys</code>
+    module and its namespace for convenience, which are updated here as well.
+    </p>
+
+    <p>
+    To support external script arguments, an empty tuple is created and added
+    to the <code>sys</code> module's namespace as the reserved symbol 1. The
+    <code>AspInitializeArguments</code> routine (defined in
+    <span class='tt'>arguments.c</span>) is called to initialize this tuple so
+    that it contains a single empty string as its first element, representing
+    all the external arguments as a single string.
+    </p>
+
+    <p>
+    During script execution, pointers to the current local and global
+    namespaces are maintained. These are both initialized to the
+    <code>sys</code> module's namespace.
+    </p>
+
+    <p>
+    Finally, to complete engine initialization, the local
+    <code>InitializeAppDefinitions</code> function is called to load all the
+    definitions in the application specification. The application
+    specification is generated by the application specification generator,
+    which is described in its own <a href='#AppSpecGenerator'>section</a>,
+    below. For each definition in the specification, an entry is added to the
+    <code>sys</code> module's namespace. This can be a variable or a function
+    definition, each of which is built up from details provided in the
+    specification. Assuming the specification was read successfully to its
+    end, engine initialization is complete, and a script may now be loaded and
+    run.
+    </p>
+
+    <h4>Script loading</h4>
+
+    <p>
+    Once the engine is initialized, a script may be loaded via the
+    <code>AspAddCode</code> routine defined in
+    <span class='tt'>engine.c</span>. This routine may be called multiple
+    times to load the script code in parts. The script code starts with a
+    header which must be validated. Once the header has been successfully
+    processed, the remaining content is added to the code area.
+    </p>
+
+    <p>
+    Once all the code is loaded, the application must call the
+    <code>AspSeal</code> function to change the engine's state from
+    <q>loading</q> to <q>ready</q>.
+    </p>
+
+    <h4>External arguments</h4>
+
+    <p>
+    When the engine is in the <q>ready</q> state, external arguments may be
+    defined via one of the two functions for this purpose:
+    <code>AspSetArguments</code> or <code>AspSetArgumentsString</code>. Both
+    are defined in <span class='tt'>arguments.c</span> and their use is
+    described in the <a href='app.html'>Application Developer's Guide</a>.
+    </p>
+
+    <h4>Script execution</h4>
+
+    <p>
+    The script is executed by repeated calls to the <code>AspStep</code>
+    routine, defined in <span class='tt'>step.c</span>. This is the heart of
+    the engine, where individual instructions are executed. These instructions
+    are described below.
+    </p>
+
+    <h3>Instructions</h3>
+
+    <p>
+    The following sections describe the instructions implemented in the Asp
+    engine. The op codes are defined in <span class='tt'>opcode.h</span>. Many
+    instructions have 1&ndash;, 2&ndash;, or 4&ndash;byte operand versions,
+    allowing the compiler to generate shorter code when the value of an
+    operand doesn't need the extra bytes. In all multi-byte cases, the
+    operands are encoded in big endian order (i.e., most significant bytes
+    first).
+    </p>
+
+    <p>
+    Some instructions use or generate <q>addresses</q> which can be the target
+    of an assignment. These <q>address</q> entries are actually sequence
+    Element entries or tree Node entries. Element entries are used to assign
+    values to elements of a sequence, whereas tree Node entries support
+    updating an item within a set or dictionary, or a namespace.
+    </p>
+
+    <p>
+    The implementation of the instructions primarily resides in
+    <span class='tt'>step.c</span>. The implementation of logical, arithmetic,
+    and bitwise operations resides in <span class='tt'>operation.c</span>.
+    Other modules used are mentioned in the descriptions, below.
+    </p>
+
+    <h4>Stack instructions</h4>
+
+    <p>
+    The <code>PUSH<i>x</i></code> instructions are used to push new values
+    onto the run-time stack for use by other instructions. Some take one
+    immediate operand (the value to be used) and many require no operand.
+    Versions of the <code>PUSHS<i>x</i></code> instruction, which push a
+    string, require two operands: the number of characters and the actual
+    characters themselves.
+    </p>
+
+    <p>
+    In the case of <code>PUSHM<i>x</i></code>, the module is assumed to have
+    been previously added. The <code>PUSHM<i>x</i></code> instruction finds the
+    module by the specified symbol, increments its use count and pushes it
+    onto the run-time stack.
+    </p>
+
+    <p>
+    The following table describes the individual push instructions and their
+    operands.
+    </p>
+
+    <table>
+      <tr>
+        <th>Instruction</th>
+        <th>Operands</th>
+        <th>Type of item pushed</th>
+      </tr>
+      <tr>
+        <td><code>PUSHN</code></td>
+        <td>None</td>
+        <td>
+        <code>None</code> (actually, a reference to the <code>None</code>
+        singleton).
+        </td>
+      </tr>
+      <tr>
+        <td><code>PUSHE</code></td>
+        <td>None</td>
+        <td><code>...</code> (ellipsis).</td>
+      </tr>
+      <tr>
+        <td><code>PUSHF</code></td>
+        <td>None</td>
+        <td>
+        Boolean <code>False</code> value (actually, a reference to a
+        <code>False</code> singleton).
+        </td>
+      </tr>
+      <tr>
+        <td><code>PUSHT</code></td>
+        <td>None</td>
+        <td>
+        Boolean <code>True</code> value (actually, a reference to a
+        <code>True</code> singleton).
+        </td>
+      </tr>
+      <tr>
+        <td><code>PUSHI0</code></td>
+        <td>None</td>
+        <td><code>0</code> (integer zero).</td>
+      </tr>
+      <tr>
+        <td><code>PUSHI1</code></td>
+        <td>1&#8209;byte integer</td>
+        <td rowspan='3'>Integer.</td>
+      </tr>
+      <tr>
+        <td><code>PUSHI2</code></td>
+        <td>2&#8209;byte integer</td>
+      </tr>
+      <tr>
+        <td><code>PUSHI4</code></td>
+        <td>4&#8209;byte integer</td>
+      </tr>
+      <tr>
+        <td><code>PUSHD</code></td>
+        <td>4&#8209;byte float</td>
+        <td>Floating-point value.</td>
+      </tr>
+      <tr>
+        <td><code>PUSHS0</code></td>
+        <td>None</td>
+        <td><code>''</code> (empty string).</td>
+      </tr>
+      <tr>
+        <td><code>PUSHS1</code></td>
+        <td>1&#8209;byte size,<br>string bytes</td>
+        <td rowspan='3'>Non-empty string.</td>
+      </tr>
+      <tr>
+        <td><code>PUSHS2</code></td>
+        <td>2&#8209;byte size,<br>string bytes</td>
+      </tr>
+      <tr>
+        <td><code>PUSHS4</code></td>
+        <td>4&#8209;byte size,<br>string bytes</td>
+      </tr>
+      <tr>
+        <td><code>PUSHTU</code></td>
+        <td>None</td>
+        <td><code>()</code> (empty tuple).</td>
+      </tr>
+      <tr>
+        <td><code>PUSHLI</code></td>
+        <td>None</td>
+        <td><code>[]</code> (empty list).</td>
+      </tr>
+      <tr>
+        <td><code>PUSHSE</code></td>
+        <td>None</td>
+        <td><code>{}</code> (empty set).</td>
+      </tr>
+      <tr>
+        <td><code>PUSHDI</code></td>
+        <td>None</td>
+        <td><code>{:}</code> (empty dictionary).</td>
+      </tr>
+      <tr>
+        <td><code>PUSHM1</code></td>
+        <td>1&#8209;byte symbol</td>
+        <td rowspan='3'>Module.</td>
+      </tr>
+      <tr>
+        <td><code>PUSHM2</code></td>
+        <td>2&#8209;byte symbol</td>
+      </tr>
+      <tr>
+        <td><code>PUSHM4</code></td>
+        <td>4&#8209;byte symbol</td>
+      </tr>
+      <tr>
+        <td><code>PUSHCA</code></td>
+        <td>4&#8209;byte address</td>
+        <td>Code address.</td>
+      </tr>
+      <tr>
+        <td><code>PUSHAL</code></td>
+        <td>None</td>
+        <td>Empty argument list.</td>
+      </tr>
+      <tr>
+        <td><code>PUSHPL</code></td>
+        <td>None</td>
+        <td>Empty parameter list.</td>
+      </tr>
+    </table>
+    
+    <p>
+    Finally, there is one instruction, <code>POP</code>, that pops a single
+    value off the stack and decrements its use count.
+    </p>
+
+    <h4>Logical operations</h4>
+
+    <p>
+    The <code>LNOT</code> instruction performs a unary operation, and
+    therefore requires one operand on the run-time stack. The operand is
+    popped off the stack, a Boolean value is determined using
+    <code>AspIsTrue</code> (defined in <span class='tt'>api.c</span>), and the
+    result is pushed back onto the stack, resulting in no change to the
+    stack's size.
+    </p>
+
+    <p>
+    Logical <code>LOR</code> and <code>LAND</code> instructions are discussed
+    in the section on <a href='#JumpInstructions'>jump instructions</a>,
+    because these binary operations use short-circuit logic and act more like
+    conditional jumps.
+    </p>
+
+    <h4>Arithmetic operations</h4>
+
+    <p>
+    There are two unary arithmetic instructions: <code>POS</code> and
+    <code>NEG</code>. Both pop the operand off the stack and ensure it is
+    numeric (i.e., Boolean, integer, or floating-point). The <code>POS</code>
+    instruction pushes the operand value back onto the stack unless it is
+    Boolean, in which case, the equivalent integer value is pushed. The
+    <code>NEG</code> instruction pops the operand value and negates it (again,
+    converting Boolean to integer if necessary), pushing the result onto the
+    stack.
+    </p>
+
+    <p>
+    Binary instructions take two operands from the stack. The first operand
+    popped is the right operand, and the next is the left operand. The
+    instructions are: <code>ADD</code>, <code>SUB</code>, <code>MUL</code>,
+    <code>DIV</code>, <code>FDIV</code> (floor division), <code>MOD</code>
+    (remainder after division), and <code>POW</code>.
+    </p>
+
+    <p>
+    The <code>ADD</code> instruction supports numeric operands, of course, but
+    also supports concatenating two sequences (strings, tuples, or lists).
+    Likewise, the <code>MUL</code> instruction supports repetition when one of
+    the operands is a sequence and the other is an integer (or a Boolean,
+    which is converted to an integer).
+    </p>
+
+    <p>
+    The <code>MOD</code> instruction normally performs the modulus operation
+    when numeric operands are provided, but when the left operand is a string
+    and the right operand is a tuple, a formatting operation is inferred. In
+    this later case, the implementation makes use of the C standard
+    <code>snprint</code> function for numeric formatting.
+    </p>
+
+    <p>
+    In all other cases, the operands must be numeric (Booleans are converted
+    to integer) and the specified arithmetic operation is carried out. Floor
+    division and modulus operations are well-defined to be as close as
+    possible to their Python counterparts.
+    </p>
+
+    <h4>Bitwise operations</h4>
+
+    <p>
+    The unary <code>NOT</code> instruction takes one integer operand. A
+    Boolean operand is accepted and converted to an integer. The operand is
+    popped off the stack and the integer result of the <code>NOT</code>
+    operation is pushed back onto the stack.
+    </p>
+
+    <p>
+    The binary <code>OR</code>, <code>XOR</code>, and <code>AND</code>
+    instructions take two integer (or Boolean) operands. After popping both
+    operands off the stack, the integer result of the bitwise operation is
+    pushed onto the stack.
+    </p>
+
+    <p>
+    The binary shift instructions, <code>LSH</code> and <code>RSH</code>, are
+    similar to the other binary instructions except that the right operand
+    (the first one popped) is checked to ensure it is not negative, yielding
+    an <code>AspRunResult_ValueOutOfRange</code> error if it is. Otherwise,
+    the bits of the left operand are shifted appropriately, and the result is
+    pushed.
+    </p>
+
+    <h4>Comparison operations</h4>
+
+    <p>
+    The comparison operations are all binary, so their instructions all take
+    two operands, the right operand being popped first, followed by the left
+    operand.
+    </p>
+
+    <p>
+    An equality test is performed with the <code>NE</code> and <code>EQ</code>
+    instructions. The relational comparison instructions <code>LT</code>,
+    <code>LE</code>, <code>GT</code>, and <code>GE</code> determine the two
+    operands' relation to each other. Membership is tested with the
+    <code>IN</code> and <code>NIN</code> (not in) instructions. And two
+    objects are tested for being the same object using the <code>IS</code> and
+    <code>NIS</code> (not is) instructions. In all cases, the two operands are
+    popped, and the Boolean result is pushed.
+    </p>
+
+    <p>
+    For the equality and relational comparisons, the logic that performs the
+    comparison is in the <code>AspCompare</code> function
+    (<span class='tt'>compare.c</span>). The implementation here also serves
+    to compare objects as keys, but this is used elsewhere. Comparison of
+    numeric values is straightforward. Sequences may be compared, and such
+    comparisons are performed depth first. See the section on
+    <a href='#RecursionAvoidance'>recursion avoidance</a> for a description of
+    how recursion is avoided in the implementation.
+    </p>
+
+    <p>
+    The <code>IN</code> and <code>NIN</code> instructions are usually used to
+    determine whether an object exists in a collection. However, a substring
+    search is supported (like Python) when both operands are strings.
+    </p>
+
+    <h4>Load instructions</h4>
+
+    <p>
+    There are two types of load instructions. The <code>LD<i>n</i></code>
+    instructions are used to load the value of a given symbol. The
+    <code>LDA<i>n</i></code> instructions load the <q>address</q> of the given
+    symbol. The actual instructions are <code>LD1</code>, <code>LD2</code>,
+    <code>LD4</code>, <code>LDA1</code>, <code>LDA2</code>, and
+    <code>LDA4</code>. The number at the end of each mnemonic indicates the
+    byte size of the immediate symbol operand.
+    </p>
+
+    <p>
+    The <code>LD<i>n</i></code> instructions search for the symbol in the
+    local, global, and system namespaces, in that order. If the symbol is
+    found in the local namespace, but it has a global override (as indicated
+    by a bit in the namespace entry), the result from the global namespace is
+    used. The value from the identified entry is pushed onto the run-time
+    stack.
+    </p>
+
+    <p>
+    The <code>LDA<i>n</i></code> instructions search the local namespace only,
+    and if the symbol is not found, a new entry is added, initially
+    referencing the <code>None</code> singleton entry (increasing its use
+    count, of course). If an existing entry is found and has a global
+    override, the global namespace is treated in likewise manner (i.e., the
+    symbol is either located or created in the global namespace). Once the
+    applicable entry is identified, the Node entry is pushed onto the stack.
+    This Namespace Node entry serves as an address. See the section on
+    <a href='#AssignmentInstructions'>assignment instructions</a> for how Node
+    entries are used as addresses.
+    </p>
+
+    <h4 id='AssignmentInstructions'>Assignment</h4>
+
+    <p>
+    Values are assigned to symbols within namespaces using the
+    <code>SET</code> and <code>SETP</code> instructions. Both instructions pop
+    the <q>address</q> off the stack first. The next value on the stack is the
+    <q>value</q> to be assigned. The <code>SET</code> instruction leaves this
+    <q>value</q> on the stack after the assignment, while the
+    <code>SETP</code> instruction pops it off the stack when finished. The
+    compiler generates the former instruction for chained assignments, where
+    the value is reused. The latter instruction is generated for the final (or
+    only) assignment in an assignment statement, and in other situations.
+    </p>
+
+    <p>
+    Both simple and sequence assignments are supported. The code that
+    implements assignments resides in <span class='tt'>assign.c</span>. For a
+    simple assignment, the <q>address</q> is either a sequence (list) Element
+    entry or the Node entry of a dictionary or namespace, both of which refer
+    to an existing value. The existing value is un-referenced, the new value's
+    use count is incremented, and it is then assigned to the element/node.
+    </p>
+
+    <p>
+    Sequence assignment is triggered when the <q>address</q> is a tuple or
+    list object. The logic in the <code>AspAssignSequence</code> routine
+    performs the element-by-element assignment in a breadth-first fashion. See
+    the <a href='#RecursionAvoidance'>recursion avoidance</a> section for a
+    description of how recursion is avoided in this implementation.
+    </p>
+
+    <h4>Deletion</h4>
+
+    <p>
+    Individual variables are deleted from a namespace using the
+    <code>DEL<i>n</i></code> instructions. The actual instructions are
+    <code>DEL1</code>, <code>DEL2</code>, and <code>DEL4</code>, referring to
+    the number of bytes of the immediate operand. The instruction fetches the
+    symbol operand and uses it to look up the variable in the local namespace.
+    If the variable has a global override in place (as indicated by a bit in
+    the Node entry), a search is made in the global namespace instead. In
+    either case, if the variable is not found, the instruction ends with the
+    <code>AspRunResult_NameNotFound</code> error. Otherwise, the entry is
+    removed from the namespace. This instruction does not access the stack.
+    </p>
+
+    <p>
+    See the section on <a href='#CollectionManipulation'>collection
+    manipulation</a> for a description of the <code>ERASE</code> instruction,
+    which is used to remove items from collections.
+    </p>
+
+    <h4>Global override instructions</h4>
+
+    <p>
+    The <code>GLOB<i>n</i></code> and <code>LOC<i>n</i></code> instructions
+    are used to control global overrides for variables. These instructions are
+    only valid when the local and global namespaces are different, which
+    happens inside the context of a function.
+    </p>
+
+    <p>
+    The <code>GLOB1</code>, <code>GLOB2</code>, and <code>GLOB4</code>
+    instructions fetch the immediate symbol operand and use it to look up the
+    variable in the local namespace and set a bit in the Node entry to
+    indicate the global override. If the variable is not found, one is added.
+    </p>
+
+    <p>
+    The <code>LOC1</code>, <code>LOC2</code>, and <code>LOC4</code>
+    instructions also fetch the immediate symbol operand. They use it to look
+    up the variable in the local namespace and clear the global override bit.
+    </p>
+
+    <p>
+    None of the global override instructions use the stack.
+    </p>
+
+    <h4>Iterator operations</h4>
+
+    <p>
+    Iterators are supported by the <code>SITER</code>, <code>TITER</code>,
+    <code>NITER</code>, and <code>DITER</code> instructions. Their operation
+    relies on the types of the operands found on the stack. Most of the
+    iterator implementation resides in <span class='tt'>iterator.c</span>.
+    </p>
+
+    <p>
+    The <code>SITER</code> instruction starts an iteration by creating an
+    iterator. It pops the iterable (the object being iterated over) off the
+    stack, creates an appropriate Iterator entry by calling
+    <code>AspIteratorCreate</code>, and then pushes it onto the stack.
+    </p>
+
+    <p>
+    The <code>TITER</code> instruction tests an iterator to determine whether
+    it has reached its end. It accesses the iterator on the top of the stack
+    without popping it. If the iterator's member index is zero, a Boolean
+    <code>False</code> value is pushed onto the stack, indicating the
+    iteration is at its end. Otherwise, <code>True</code> is pushed. Notice
+    that the iterator remains on the stack. This is done to simplify the code
+    generated for iteration (<code>for</code>) loops.
+    </p>
+
+    <p>
+    The <code>NITER</code> instruction advances an iterator to its next
+    position within the iteration. The iterator is accessed on the top of the
+    stack and is left there. The <code>AspIteratorNext</code> function is
+    called to perform the advancing logic.
+    </p>
+
+    <p>
+    To fetch the value referenced by an iterator, the <code>DITER</code>
+    instruction is used. It accesses the iterator on the top of the stack
+    without popping it. The <code>AspIteratorDereference</code> function is
+    called to access the value, which is pushed onto the stack.
+    </p>
+
+    <p>
+    As mentioned above, most of the iterator logic is implemented in
+    <span class='tt'>iterator.c</span>. These functions are also used by the
+    library iterator functions that provide low-level iterator control from a
+    script. The library support is defined in
+    <span class='tt'>lib-iter.c</span>. Iteration is supported for ranges,
+    strings, tuples, lists, sets, and dictionaries.
+    </p>
+
+    <p>
+    In the case of ranges, an integer value is created when the iterator is
+    created. This integer is used as the member reference in the iterator. It
+    is un-referenced (and thus freed) when either the iteration comes to its
+    end, or the iterator is freed.
+    </p>
+
+    <p>
+    Iteration over sequences uses the Element entries as the referenced
+    member. Likewise, iteration over sets and dictionaries uses the Node
+    entry. String iteration also uses a count in the Iterator entry to keep
+    track of the current character within a String Fragment entry.
+    </p>
+
+    <h4 id='JumpInstructions'>Jump instructions</h4>
+
+    <p>
+    The engine supports several jump instructions. The unconditional
+    <code>JMP</code> instruction pops a code address off the stack and
+    transfers control to the new code location by updating the engine's
+    program counter (actually, a pointer into the code area).
+    </p>
+
+    <p>
+    After popping the code address, the conditional jump instructions
+    <code>JMPF</code> and <code>JMPT</code> pop a condition value off the
+    stack and use <code>AspIsTrue</code> (<span class='tt'>api.c</span>) to
+    determine its Boolean value. The program counter is only updated if the
+    condition matches the test implied by the instruction.
+    </p>
+
+    <p>
+    The implementation of the short-circuit logical <code>LOR</code> and
+    <code>LAND</code> instructions is very similar to the conditional jump
+    instructions. In the case of the short-circuit logical instructions,
+    however, the value is only popped off the stack if the program counter is
+    updated. When the program counter is not updated, the test value is left
+    on the stack. A section on code generation for
+    <a href='#JumpExpressionsCode'>expressions with jumps</a> describes the
+    code emitted for short-circuit logical expressions, which should help to
+    understand why the instructions are designed this way.
+    </p>
+
+    <p>
+    There is a <code>NOOP</code> instruction which does nothing. Technically,
+    it is considered a jump instruction that never jumps. Because this action
+    is unconditional, it uses no operand. Note that the compiler never
+    generates this instruction.
+    </p>
+
+    <h4>Function definition</h4>
+
+    <p>
+    Several instructions are used to define functions. The main one is
+    <code>MKFUN</code>, but it relies on the <code>MKPAR<i>n</i></code>,
+    <code>MKDPAR<i>n</i></code>, and <code>MKGPAR<i>n</i></code> instructions
+    to form the parameter lists that become part of a function definition, so
+    we will cover these first.
+    </p>
+
+    <p>
+    The <code>MKPAR1</code>, <code>MKPAR2</code>, and <code>MKPAR4</code>
+    instructions extract the parameter's symbol from an appropriately sized
+    immediate operand and push a new parameter entry onto the stack. The
+    <code>MKGPAR1</code>, <code>MKGPAR2</code>, and <code>MKGPAR4</code>
+    instructions do likewise, setting the group bit in the Parameter entry.
+    Typical, a <code>BLD</code> instruction (see the section on
+    <a href='#CollectionManipulation'>collection manipulation</a>) adds this
+    Parameter entry to a parameter list that is already on the stack.
+    </p>
+
+    <p>
+    For parameters with default values, the <code>MKDPAR1</code>,
+    <code>MKDPAR2</code>, and <code>MKDPAR4</code> instructions work in a
+    similar fashion, obtaining the parameter symbol from the immediate
+    operand. But in addition, they access the default value from the top of
+    the stack, and then replace it with the Parameter entry, setting the
+    Parameter entry's default value index to the index of the default value
+    and setting its default value bit. The use count of the default value
+    object remains unchanged throughout this process; ownership transfers from
+    one entry to the other.
+    </p>
+
+    <p>
+    To define a function, the <code>MKFUN</code> instruction pops a Code
+    Address entry off the stack. This is the code entry point for the
+    function. It then accesses the Parameter List entry on the top of the
+    stack, and then replaces it with a function entry which refers to the
+    Parameter List entry and has the code address. The function's module index
+    is set to refer to the engine's current module. Typically, the function
+    definition is assigned to a variable (whose symbol is associated with the
+    name of the function) via a <code>SETP</code> instruction.
+    </p>
+
+    <p>
+    The preceding instructions are used by scripts to define functions.
+    Function definitions are also created by the application. The code that
+    implements the adding of application functions is in
+    <span class='tt'>engine.c</span>, specifically the local
+    <code>InitializeAppDefinitions</code> function, which has been covered in
+    section on <a href='#EngineInitialization'>engine initialization</a>. This
+    function reads the application specification and generates a hierarchy of
+    entries like the one described above, except that the application bit is
+    set in the function definition entry to aid with the function call process.
+    </p>
+
+    <h4>Function call</h4>
+
+    <p>
+    Like function definition, several instructions are involved in the calling
+    of a function, the main one being the <code>CALL</code> instruction.
+    Argument creation is done using the <code>MKARG</code>,
+    <code>MKNARG<i>n</i></code>, and <code>MKGARG</code> instructions.
+    </p>
+
+    <p>
+    The <code>MKARG</code> instruction is used to create a positional
+    argument. It replaces the value object on the top of the stack with an
+    applicable argument entry. The <code>MKGARG</code> instruction is very
+    similar except for two things. First, it ensures the value on the top of
+    the stack is a tuple, and second, it sets the group bit on the argument
+    entry in order to invoke the proper treatment when the call happens.
+    </p>
+
+    <p>
+    Named arguments are created with the <code>MKNARG1</code>,
+    <code>MKNARG2</code>, and <code>MKNARG4</code> instructions, which fetch
+    the name's symbol from the appropriately sized immediate operand.
+    Otherwise, these instructions operate like the previous ones, replacing
+    the value on the top of the stack with an argument entry. This time, the
+    argument entry is marked as having a name by setting the appropriate bit
+    and symbol field.
+    </p>
+
+    <p>
+    The <code>CALL</code> instruction pops first the Function entry, and then
+    the Argument List entry off the stack. Recall that the Function entry
+    contains a reference to the parameter list. Using both argument and
+    parameter lists, a new namespace is created containing entries for all the
+    parameters' symbols with appropriate values assigned. This is accomplished
+    by the <code>AspLoadArguments</code> function defined in
+    <span class='tt'>function.c</span>. This function handles positional
+    arguments first, and then named arguments are matched to their matching
+    parameters. Finally, default values are used for any parameters that were
+    not assigned up to this point. With a namespace of parameter values in
+    place, the <code>CALL</code> instruction performs one of two very
+    different sets of operations, depending on whether the function was
+    defined by the application or by a script, as indicated by a bit in the
+    Function entry.
+    </p>
+
+    <p>
+    For script functions, the <code>CALL</code> instruction now pushes a new
+    Frame entry onto the stack. This Frame entry contains the current program
+    counter (as an offset into the code area) as the return address, and
+    references to the engine's current local namespace and module. Then the
+    engine's current global namespace and module are set to the corresponding
+    values in the Function entry, and the engine's local namespace is set to
+    the newly created namespace containing the assigned parameter values.
+    Next, control is passed to the function entry point by updating the
+    program counter with the code address from the Function entry.
+    </p>
+
+    <p>
+    To complete the discussion of calling script functions, we cover the
+    <code>RET</code> instruction next. When the code associated with a
+    function ends, it must push a return value onto the stack. The
+    <code>RET</code> instruction first pops this return value for eventual use
+    back in the calling code. It then un-references the local namespace, which
+    initially contained only the initial parameter values, but may now contain
+    many other locally defined variables. The next item on the stack is the
+    Frame entry which was created by the <code>CALL</code> instruction. This
+    is used to restore the engine's original local and global namespaces and
+    module, and the program counter (return address). The Frame entry is
+    popped off the stack and replaced with the return value, the program
+    counter is updated with the return address, and then script execution
+    proceeds from the point after the <code>CALL</code> instruction that
+    invoked the function.
+    </p>
+
+    <p>
+    When the function is defined in the application, the <code>CALL</code>
+    instruction takes a different path. Ignoring the <q>again</q> feature for
+    a moment, the first thing that happens is that certain values stored in
+    the <code>Engine</code> structure are initialized so that the application
+    function dispatch logic has access to them. These are the symbol of the
+    function, the namespace with the parameter values, and a pointer to a
+    return value, initially a null pointer. It then calls the custom dispatch
+    function that was generated by the application specification generator
+    tool (<span class='tt'>aspg</span>; see the section on the
+    <a href='#AppSpecGenerator'>application specification generator</a> for
+    details). Using the function's symbol in a <code>switc</code>h statement,
+    the intended application function is called with argument values accessed
+    from the local namespace. While the application is control, it may or may
+    not assign a return value. If assigned, this value is stored in a return
+    value pointer in the <code>Engine</code> structure. When the function
+    exits, the <code>CALL</code> instruction ensures that the call was
+    successful (i.e., returned <code>AspRunResult_OK</code>, or as explained
+    below, <code>AspRunResult_Again</code>). At this point, the local
+    namespace (which the dispatch function used, but which the application
+    function has no access to, so therefore should be unchanged) is
+    un-referenced (and therefore freed). Then the engine's return value
+    pointer is checked. If it is still null, this means that the application
+    function did not assign a return value, so in this case, one is created
+    with a reference to the <code>None</code> singleton (bumping its use
+    count, of course). Otherwise, the return value in the <code>Engine</code>
+    structure is used. In either case, the return value is pushed onto the
+    stack, and execution continues with the next instruction.
+    </p>
+
+    <p>
+    In the case of an application function that returns
+    <code>AspRunResult_Again</code>, special processing takes place. First,
+    the program counter is prevented from advancing to the next instruction,
+    and an <q>again</q> flag in the <code>Engine</code> structure is set. The
+    application that is running the script is oblivious to the return value,
+    because the <code>CALL</code> instruction returns
+    <code>AspRunResult_OK</code> back to the caller of the
+    <code>AspStep</code> function. The next time <code>AspStep</code> is
+    called, the <code>CALL</code> instruction will notice that the engine's
+    <q>again</q> flag is set and skip over much of the initialization steps
+    mentioned above and proceed to calling the application function again.
+    When the application function finally returns with
+    <code>AspRunResult_OK</code> (or an error), the logic acts as if this were
+    the first invocation of the <code>CALL</code> instruction and behaves as
+    previously described.
+    </p>
+
+    <h4>Module operations</h4>
+
+    <p>
+    Three types of instructions provide support for modules:
+    <code>ADDMOD<i>n</i></code>, <code>LDMOD<i>n</i></code>, and
+    <code>XMOD</code>. The <code>ADDMOD<i>n</i></code> instructions are
+    typically used to add all the modules used by a script near the beginning
+    of the script's execution. The <code>LDMOD<i>n</i></code> instructions
+    correspond with the <code>import</code> statement. The <code>XMOD</code>
+    instruction is used to exit a module.
+    </p>
+
+    <p>
+    The <code>ADDMOD1</code>, <code>ADDMOD2</code>, and <code>ADDMOD4</code>
+    instructions fetch the module symbol from the first of two immediate
+    operands, which is 1, 2, or 4 bytes, as applicable. The second immediate
+    operand is the 4&#8209;byte code address, an offset into the code area.
+    The instruction then creates a Module entry along with a Namespace entry
+    for the module, and then adds the module to the engine's collection of
+    modules (a namespace), indexed by the module's symbol.
+    </p>
+
+    <p>
+    The <code>LDMOD1</code>, <code>LDMOD2</code>, and <code>LDMOD4</code>
+    instructions fetch the module symbol from the appropriately sized
+    immediate operand. The symbol is used to look up the module in the
+    engine's module collection. Once located, a bit is checked to determine
+    whether the module has been loaded (i.e., executed). If not, the bit is
+    first set (to avoid the potential of recursive loading) and then the
+    module is executed in a manner similar to, but simpler than, the way a
+    function is called (because no arguments or return value are involved). A
+    new Frame entry is pushed onto the stack with the current program counter
+    for the return address, and the engine's current module and local
+    namespace. Then the engine's module and global and local namespaces are
+    set to those of the module being loaded, and the program counter is
+    updated to the module's entry point.
+    </p>
+
+    <p>
+    The <code>XMOD</code> instruction exits a module in a manner similar to,
+    but simpler than, the <code>RET</code> instruction returning from a
+    function call. The Frame entry is popped off the stack, and the engine's
+    local and global namespaces and current module are restored to the values
+    saved in the frame, and then the program counter is updated to the return
+    address.
+    </p>
+
+    <h4>Range creation</h4>
+
+    <p>
+    There are eight different instructions that may be used to create a Range
+    entry, depending on which components of the range are specified. If
+    unspecified, each component takes on a default value. The instructions,
+    and which operands are expected on the stack, are shown in the following
+    table.
+    </p>
+
+    <table>
+      <tr>
+        <th>Instruction</th>
+        <th>Start?</th>
+        <th>End?</th>
+        <th>Step?</th>
+      </tr>
+      <tr>
+        <td><code>MKR0</code></td>
+        <td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td><code>MKRS</code></td>
+        <td style='text-align: center;'>&check;</td>
+        <td></td><td></td>
+      </tr>
+      <tr>
+        <td><code>MKRE</code></td>
+        <td></td>
+        <td style='text-align: center;'>&check;</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>MKRSE</code></td>
+        <td style='text-align: center;'>&check;</td>
+        <td style='text-align: center;'>&check;</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>MKRT</code></td>
+        <td></td><td></td>
+        <td style='text-align: center;'>&check;</td>
+      </tr>
+      <tr>
+        <td><code>MKRST</code></td>
+        <td style='text-align: center;'>&check;</td>
+        <td></td>
+        <td style='text-align: center;'>&check;</td>
+      </tr>
+      <tr>
+        <td><code>MKRET</code></td>
+        <td></td>
+        <td style='text-align: center;'>&check;</td>
+        <td style='text-align: center;'>&check;</td>
+      </tr>
+      <tr>
+        <td><code>MKR</code></td>
+        <td style='text-align: center;'>&check;</td>
+        <td style='text-align: center;'>&check;</td>
+        <td style='text-align: center;'>&check;</td>
+      </tr>
+    </table>
+
+    <p>
+    The instruction pops the required operands in order, starting with the
+    start value, then the end value, and finally the step value, popping from
+    zero to three operands. Each operand must be an Integer entry.
+    </p>
+
+    <p>
+    The instruction ends by pushing a new range entry onto the stack. The
+    index of each Integer entry is assigned to the applicable word in the
+    Range entry. Unspecified components are given a zero index to indicate the
+    absence of an integer entry. This also happens when a default value is
+    specified explicitly (i.e., a start value of <code>0</code> or a step
+    value of <code>1</code>), in which case the specified value object is
+    discarded. Bits in the Range entry indicate which components are used.
+    </p>
+
+    <p>
+    Instructions that use Range entries typically use the functions defined in
+    <span class='tt'>range.c</span> to access the individual components of the
+    range.
+    </p>
+
+    <h4 id='CollectionManipulation'>Collection manipulation</h4>
+
+    <p>
+    The <code>INS</code> and <code>INSP</code> instructions are used to insert
+    a new entry into an existing collection, which may be a list, set, or
+    dictionary. The <code>BLD</code> instruction acts in the same manner as
+    the <code>INS</code> instruction, except that it is intended for use with
+    tuples, parameter lists, and argument lists.
+    </p>
+
+    <p>
+    All three instructions pop the item to be inserted off the stack first.
+    The next value on the stack is the collection to be modified. When the
+    instruction finishes executing, the <code>INSP</code> instruction pops the
+    collection entry off the stack, whereas the <code>INS</code> and
+    <code>BLD</code> instructions leave it on the stack for potential use in a
+    subsequence insert operation.
+    </p>
+
+    <p>
+    In the case of tuples and parameter lists, the operation is simple. The
+    item is appended to the end of the list. The operation on sets is similar,
+    with the item being inserted into the set, using key comparisons to
+    determine the insertion point. Note that in addition to normal objects,
+    <q>address-like</q> entries (Element and Node entries) can be added to
+    tuples or lists to support building the target of a sequence assignment.
+    </p>
+
+    <p>
+    Inserting into a dictionary is only slightly more complex. First, a
+    Key/Value Pair entry must be created. This is done using the
+    <code>MKKVP</code> instruction, which pops the key and value entries off
+    the stack, in that order, and then pushes a new Key/Value Pair entry which
+    refers to the key and value entries. Now the item on the top of the stack
+    is a single Key/Value Pair entry which can be used to insert an entry into
+    a dictionary.
+    </p>
+
+    <p>
+    Inserting into a list can resemble the tuple case, where an object is
+    appended to the end of the list. However, if the item to be inserted is a
+    Key/Value Pair entry, the key must be an integer, and is used to determine
+    the insertion point.
+    </p>
+
+    <p>
+    The last complication arises with the insertion of arguments into an
+    argument list. If the Argument entry is marked with the group bit set, the
+    value referred to from the Argument entry must be a tuple. The tuple is
+    traversed (top-level only) and each item within is appended individually
+    into the target argument list. If instead the argument's group bit is not
+    set, it is treated in the same manner as appending to a tuple or parameter
+    list, as described above.
+    </p>
+
+    <p>
+    To erase an item from a collection, the <code>ERASE</code> instruction is
+    used. The instruction pops the index or key off the top of the stack, and
+    then the collection to be modified.
+    </p>
+
+    <p>
+    When erasing an item from a list, the index operand may be an integer or a
+    range. An integer causes the identified element to be erased from the
+    list. A range performs a slice erase operation.
+    </p>
+
+    <p>
+    For sets and dictionaries, the key entry is used to erase the matching
+    item from the collection.
+    </p>
+
+    <p>
+    The <code>ERASE</code> instruction also supports removing a member from a
+    module. The key must be an integer and represents the symbol of the entry
+    to be removed from the module's namespace.
+    </p>
+
+    <p>
+    When inserting or erasing from trees (sets, dictionaries, and namespaces),
+    key comparisons are performed by the <code>AspCompare</code> routine
+    defined in <span class='tt'>compare.c</span>. This type of comparison is
+    different than that used by the relational operators and defines an order
+    among all types of immutable objects (i.e., objects that can be used as
+    keys).
+    </p>
+
+    <h4>Collection indexing and slicing</h4>
+
+    <p>
+    The <code>IDX</code> and <code>IDXA</code> instructions are used for
+    finding an item in a collection. When the collection is a sequence and the
+    index value is a range, a slice operation is performed. The
+    <code>IDX</code> instruction ends by pushing the selected item (or
+    sequence of items in the case of a slice) onto the stack, whereas the
+    <code>IDXA</code> instruction pushes <q>addresses</q> (or a sequence of
+    <q>addresses</q>), where an address is an Element or Node entry.
+    </p>
+
+    <p>
+    The instruction starts by popping the index/key entry and the collection
+    entry off the stack, in that order. The following paragraphs describe the
+    operation as it applies to each type of supported collection. The
+    collection can be a string, tuple, list, or dictionary. Sets cannot be
+    indexed.
+    </p>
+
+    <p>
+    For dictionaries, the operation is straightforward. The <code>IDX</code>
+    instruction simply searches the dictionary using the key and the pushes
+    the value onto the stack. With the <code>IDXA</code> instruction, if the
+    key is not found, a new entry is inserted with an associated value of
+    <code>None</code>. Then, whether the a new entry was made or not, the
+    <q>address</q> (node) is pushed onto the stack.
+    </p>
+
+    <p>
+    Tuples and lists are treated in a similar fashion, except that
+    <code>IDXA</code> is not supported for tuples (because the individual
+    items in a tuple cannot be modified). Simple indexing is performed when
+    the index value is an integer; the selected element's value is pushed onto
+    the stack, or the <code>AspRunResult_ValueOutOfRange</code> error is
+    returned. If the index value is a range entry, slicing is performed. In
+    this case, a sequence of the same type as the source sequence is created,
+    and the selected item(s) are appended into this new sequence, which is
+    then pushed onto the stack.
+    </p>
+
+    <p>
+    Strings may also be indexed in the same way that tuples and lists are.
+    Only the <code>IDX</code> instruction is supported for strings (since the
+    individual characters within a string cannot be modified). In the case of
+    strings, the resulting string from a simple index operation (when the
+    index is an integer), is a newly created single-character string. When a
+    slicing operation is performed (when the index is a range), the result is
+    a newly created string containing all the selected characters.
+    </p>
+
+    <h4>Member operations</h4>
+
+    <p>
+    Member lookup is accomplished with the <code>MEM<i>n</i></code> and
+    <code>MEMA<i>n</i></code> instructions and is used to look up variables by
+    symbol in a module's namespace.
+    </p>
+
+    <p>
+    The <code>MEM1</code>, <code>MEM2</code>, and <code>MEM4</code>
+    instructions fetch a symbol from the immediate operand of the appropriate
+    size. The module entry is then popped from the top of the stack, and the
+    module's associated namespace is located and searched using the symbol. If
+    the entry is found, the associated value is pushed onto the stack.
+    Otherwise, the <code>AspRunResult_NameNotFound</code> error is generated.
+    </p>
+
+    <p>
+    In the case of the <code>MEMA<i>n</i></code> instructions, a similar
+    process is performed. If the entry is not found, a new one is inserted
+    with an associated value of <code>None</code>. Instead of the value, the
+    found (or created) Namespace Node entry is pushed, which represents an
+    <q>address</q>.
+    </p>
+
+    <h4>Termination instructions</h4>
+
+    <p>
+    Two instructions can be used to end the execution of a script:
+    <code>END</code> and <code>ABORT</code>. The <code>END</code> instruction
+    is used to bring the script to a successful end. The <code>ABORT</code>
+    instruction ends the script with the <code>AspRunResult_Abort</code>
+    error.
+    </p>
+
+    <p>
+    The <code>END</code> instruction checks to ensure the stack is empty,
+    issuing an <code>AspRunResult_InvalidEnd</code> error if it is not.
+    </p>
+
+    <h3>Application programmer interface</h3>
+
+    <p>
+    The application programmer interface (API) is fully described in the
+    <a href='app.html'>Application Developer's Guide</a>. Most of the API
+    functions are defined in <span class='tt'>api.c</span>, but some are
+    defined elsewhere. All of them are declared in
+    <span class='tt'>asp.h</span>.
+    </p>
+
+    <h3>Miscellaneous</h3>
+
+    <p>
+    The engine library includes some predefined <q>application</q> functions
+    that scripts may call, assuming they are included in the application
+    specification file generated for the application. The implementation of
+    these functions resides in module names starting with
+    <q><code>lib-</code></q>. To date, the following source files contain such
+    functions: <span class='tt'>lib-type.c</span>,
+    <span class='tt'>lib-math.c</span>, <span class='tt'>lib-collect.c</span>,
+    and <span class='tt'>lib-iter.c</span>. Application specification source
+    files matching the file name suffixes are listed in the
+    <a href='app.html'>Application Developer's Guide and their functions are
+    described in the <a href='script.html'>Script Writer's Guide</a>.
+    </p>
+
+    <p>
+    Debug code resides in the <span class='tt'>debug.c</span> file and is
+    excluded from release builds. It defines the <code>AspDump</code> function
+    which can be used for debugging purposes during development. It dumps the
+    entire content of the data area and the engine state to the specified file
+    descriptor in a human readable form. The data entry output is compressed
+    when multiple adjacent free entries are encountered.
+    </p>
+
+    <h2>Compiler</h2>
+
+    <p>
+    The compiler source code can be found in the
+    <span class='tt'>compiler</span> directory of the source repository and is
+    described in the following sections.
+    </p>
+
+    <h3 id='AppSpec'>Application specification</h3>
+
+    <p>
+    The compiler requires two files as input: the script's source file
+    (<q><span class='tt'>.asp</span></q>) and a binary application
+    specification file (<q><span class='tt'>.aspec</span></q>) which is
+    generated by the application specification generator, which is described
+    in <a href='#AppSpecGenerator'>its own section</a>.
+    </p>
+
+    <p>
+    The first thing the compiler does is to load the application
+    specification. This associates names of functions and variables defined by
+    the application with symbol numbers which will be written into the code to
+    save space. The <code>LoadApplicationSpec</code> method of the
+    <code>Compiler</code> class (<span class='tt'>compiler.cpp</span>) handles
+    this process.
+    </p>
+
+    <h3>Source file processing</h3>
+
+    <p>
+    After the application specification file has been loaded, the script
+    source file is added to a list of modules to be processed. During
+    processing, <code>import</code> statements cause other modules to be added
+    to the list, each of which is processed from start to end in sequence, in
+    the order in which they are encountered.
+    </p>
+
+    <p>
+    For each module, a lexical analyzer (<span class='tt'>lexer.c</span> and
+    <span class='tt'>lexer-common.cpp</span>) is created to read tokens from
+    the file and a parser (see <a href='#Parsing'>parsing section</a>, below)
+    is created to parse the token stream. Some tokens indicate errors in the
+    source code (e.g., invalid indentation). Encountering such an error ends
+    the compilation. When the end of a file is reached, the parser and lexical
+    analyzer are finalized and destroyed, whereupon the process is repeated
+    for any remaining source modules.
+    </p>
+
+    <h3 id='Parsing'>Parsing</h3>
+
+    <p>
+    The Asp compiler uses the public domain lemon parser generator to generate
+    a parser for the Asp grammar. The implementation of the parser generator
+    resides in a single source file, <span class='tt'>lemon.c</span>. A copy
+    of the source code was obtained from
+    <a href='https://sqlite.org/src/doc/trunk/doc/lemon.html' target='_blank'>
+    https://sqlite.org/src/doc/trunk/doc/lemon.html</a> and stored in the
+    <span class='tt'>lemon</span> directory of the source repository, along
+    with the code generation template <span class='tt'>lempar.c</span>. The
+    Asp grammar is defined in <span class='tt'>asp.y</span>. During the build,
+    the parser generator reads the grammar and generates the parser in C,
+    which is then compiled into the compiler.
+    </p>
+
+    <p>
+    Most of the compiler is implemented in C++. The top-level class is
+    <code>Compiler</code> (<span class='tt'>compiler.cpp</span>). To integrate
+    with the C parser, several headers are designed to be included as either C
+    or C++ code, most notably <span class='tt'>compiler.h</span>,
+    <span class='tt'>lexer.h</span>, and <span class='tt'>token.h</span>.
+    </p>
+
+    <p>
+    Fancy macros defined in <span class='tt'>compiler.h</span> and
+    <span class='tt'>compiler.cpp</span> turn C calls into C++ method
+    invocations. One of these macros, <code>ACTION</code>, is then used in the
+    lemon grammar rules in <span class='tt'>asp.y</span> to invoke the methods
+    in the Compiler class.
+    </p>
+
+    <p>
+    As each statement is parsed, an object hierarchy is built using classes
+    defined in
+    <span class='tt'>expression.hpp</span>/<span class='tt'>cpp</span> and
+    <span class='tt'>statement.hpp</span>/<span class='tt'>cpp</span>. Once
+    all the statements of the script(s) are processed, these classes are then
+    used during code generation, as described in the next section.
+    </p>
+
+    <h3>Code generation</h3>
+
+    <p>
+    As mentioned above, various classes are used to define expressions and
+    statements. The code associated with code generation (<code>Emit</code>
+    methods) for these classes is all collected into one source file,
+    <span class='tt'>emit.c</span>. The code generated from each type of
+    expression and statement is described below.
+    </p>
+
+    <p>
+    The primary output of the compiler is a binary script executable. Code in
+    the <code>Executable</code> class
+    (<span class='tt'>executable.hpp</span>/<span class='tt'>cpp</span>) is
+    responsible for writing the binary output file. The file starts with a
+    header that consists of the following items:
+    </p>
+
+    <ol>
+      <li>
+      The 4 characters <q><code>AspE</code></q>.
+      </li>
+      <li>
+      The 4-part version of the compiler: major, minor, patch, and tweak.
+      These values come from the build environment (CMake).
+      </li>
+      <li>
+      The cyclic redundancy check value(CRC) from the application
+      specification file.
+      </li>
+    </ol>
+
+    <p>
+    The <code>Executable</code> class has an <code>Insert</code> method that
+    inserts an instruction at the current location, bumping the current
+    location beyond the instruction after it is inserted. Therefore, inserting
+    several instructions in a row inserts them in sequence, as expected.
+    However, it is often necessary to insert instructions out of order. To
+    handle this, the <code>PushLocation</code> and <code>PopLocation</code>
+    methods allow the current location to be temporarily modified to insert
+    instructions at a different location before returning to the previous
+    insertion point. The need for this will become obvious when the code
+    generation logic for individual statements is discussed below.
+    </p>
+
+    <p>
+    Also, to facilitate making code generation easier for jump instructions,
+    the target of a jump may not always be generated before the jump
+    instruction is inserted. For this reason, the compiler supports a null
+    instruction which generates no code but can serve as the target of a jump.
+    (This should not be confused with the NOOP instruction, which the compiler
+    does not currently emit, but is, nevertheless supported by the engine.)
+    </p>
+
+    <p>
+    Writing the executable file from the list of instructions is a two-step
+    process. First, two passes are made over the instruction list. The first
+    pass assigns a code byte-offset to each instruction based on the size of
+    the instructions preceding it. The second pass performs <q>fixups</q> to
+    jump targets, converting an instruction's target location (its position
+    within the list) to an actual address (byte-offset). At this point, the
+    instructions can be written out to the executable file.
+    </p>
+
+    <h4 id='SimpleExpressionCode'>Simple expressions</h4>
+
+    <p>
+    The simplest expression of all is a manifest constant (i.e., literal).
+    These are represented by the <code>ConstantExpression</code> class and
+    emit a single <code>PUSH<i>x</i></code> instruction of the applicable
+    type.
+    </p>
+
+    <p>
+    The next simplest expression is a single variable. Depending on the
+    context, a variable may be treated as either a value or an address. For
+    example, a single variable on the right side of an assignment statement is
+    treated as a value. In this case, a <code>LD<i>n</i></code> instruction is
+    emitted. Several situations call for a variable to be treated as an
+    address. A single variable on the left side of an assignment is one
+    example. A variable inside a tuple on the left side of an assignment is
+    another. In such cases, a <code>LDA<i>n</i></code> instruction is emitted
+    to load the variable's <q>address</q>.
+    </p>
+
+    <p>
+    A range expression (<code>RangeExpression</code> class) has up to three
+    associated expressions (presumably yielding integer results). Instructions
+    for each of these expressions is emitted by calling its Emit method, and
+    then this is followed by the appropriate <code>MKR<i>x</i></code>
+    instruction to create the range object.
+    </p>
+
+    <p>
+    For tuple and list expressions, a <code>PUSHTU</code> or
+    <code>PUSHLI</code> instruction is emitted to push an empty collection
+    onto the stack. Then for each element, the element's expression is
+    emitted, resulting in a value (or address) on the stack, and then a
+    <code>BLD</code> instruction is emitted to pop the item from the top of
+    the stack and incorporate it into the collection. Note that the net effect
+    is to leave the collection entry on the top of the stack.
+    </p>
+
+    <p>
+    Sets and dictionaries are handled in much the same way, using a
+    <code>PUSHSE</code> or <code>PUSHDE</code> instruction to create the
+    initially empty collection. Note that tuples and lists support emitting
+    addresses (to support sequence assignment) whereas sets and dictionaries
+    do not. Also, for dictionaries, the value being incorporated into the
+    collection is a key/value pair. Key/value pairs are emitted by emitting
+    the value expression first, followed by the key expression, and then a
+    <code>MKKVP</code> instruction.
+    </p>
+
+    <p>
+    Unary operation expressions are simple. The subexpression is emitted, and
+    then an appropriate instruction for the unary operation is emitted. These
+    include <code>LNOT</code>, <code>POS</code>, <code>NEG</code>, and
+    <code>NOT</code>. Likewise, simple binary operation expressions start by
+    emitting the two operands, left operand first, so that the right operand
+    winds up on the top of the stack when the binary operation instruction
+    executes. The binary instructions handled in this way are: the bitwise
+    instructions <code>OR</code>, <code>XOR</code>, <code>AND</code>,
+    <code>LSH</code>, and <code>RSH</code>; the arithmetic <code>ADD</code>,
+    <code>SUB</code>, <code>MUL</code>, <code>DIV</code>, <code>FDIV</code>,
+    <code>MOD</code>, and <code>POW</code> instructions; the comparison
+    instructions <code>NE</code>, <code>EQ</code>, <code>LT</code>,
+    <code>LE</code>, <code>GT</code>, and <code>GE</code>; and the membership
+    and identity instructions <code>NIN</code>, <code>IN</code>,
+    <code>NIS</code>, and <code>IS</code>.
+    </p>
+
+    <p>
+    An element expression (either indexing or slicing, e.g.,
+    <code>x[i]</code>) is emitted by first emitting the sequence expression
+    (e.g., <code>x</code> in the example), and then the index expression
+    (e.g., <code>i</code>). Depending on the context, this is followed by an
+    <code>IDX</code> or <code>IDXA</code> instruction to yield a value or an
+    <q>address</q>, respectively. In the context of a <code>del</code>
+    statement, however, no final instruction is emitted because the method
+    that handles the <code>del</code> statement handles this. See the section
+    on the <a href='#DeleteCode'><code>del</code> statement</a>.
+    </p>
+
+    <p>
+    A member lookup (e.g. <code>m.a</code>) is handled in a slightly different
+    manner. The first expression (which should express a module) is emitted.
+    The second operand (after the period) must be a name, and the symbol of
+    this name is obtained. In normal contexts, a <code>MEM</code> or
+    <code>MEMA</code> instruction is emitted, as appropriate to the context
+    (value or <q>address</q>), specifying the symbol as an operand. In the
+    context of a <code>del</code> statement, the symbol value is push onto the
+    stack by emitting a <code>PUSHI</code> instruction. The <code>del</code>
+    statement's <code>Emit</code> method handles the rest of the code
+    emission, as described in the <a href='#DeleteCode'><code>del</code>
+    statement</a> section.
+    </p>
+
+    <p>
+    The last expression to consider in this section involves function calls. A
+    function call expression is made up of a function expression followed by
+    an argument list enclosed in parentheses. The argument list is emitted
+    first, followed by the function expression, and finally a
+    <code>CALL</code> instruction.
+    </p>
+
+    <p>
+    The argument list may consist of multiple arguments, some of which may be
+    named or identified as a group (the <code>*args</code> syntax). Like with
+    regular sequences, to emit the argument list, first an empty argument list
+    is pushed onto the stack using a <code>PUSHAL</code> instruction. Then,
+    for each argument expression, the expression is emitted and then followed
+    by a <code>BLD</code> instruction to add the argument to the list. Named
+    arguments emit the <code>MKNARG</code> instruction, with the name symbol
+    as an operand. Unnamed arguments emit the <code>MKARG</code> instruction
+    if they are not a group, or the <code>MKGARG</code> instruction if they
+    are. Neither instruction requires an operand but uses the value on the top
+    of the stack.
+    </p>
+
+    <h4 id='JumpExpressionsCode'>Expressions with jumps</h4>
+
+    <p>
+    Short-circuit logic expressions (those using the <code>and</code> and
+    <code>or</code> keywords) are handled differently than simple binary
+    expressions. These expressions can have more than two operands (e.g.,
+    <code>a and b and c</code>) and, while syntactically such an expression is
+    left associative, the expression is handled as a single conjunction of
+    expressions. Therefore, the example given would be represented by a single
+    <q><code>and</code></q> short-circuit logic expression with three
+    sub-expressions.
+    </p>
+
+    <p>
+    The code emission proceeds as follows. The left-most expression is
+    emitted, and then a null instruction is inserted to mark the end of the
+    entire expression, which will be the target of one or more conditional
+    jump instructions. At this point, the current insertion point is pushed
+    and replaced with the location of the ending null instruction. Any
+    instructions inserted at this point will be inserted before the ending
+    null instruction. Now, for each remaining sub-expression, the applicable
+    short-circuit logical operation instruction, <code>LOR</code> or
+    <code>LAND</code>, is inserted, followed by the code of the
+    sub-expression. The <code>LOR</code> and <code>LAND</code> instructions
+    require a target location, which in this case is the location of the
+    ending null instruction. After all the remaining sub-expressions have been
+    handled, the current location is popped. Because of the way the
+    <code>LOR</code> and <code>LAND</code> instructions work, the net result
+    of this sequence of instructions is to leave a single value on the top of
+    the stack which will be the result of one of the sub-expressions. Some of
+    the sub-expressions' code will be skipped (i.e., jumped over), which is
+    the intention of the short-circuit logic operators.
+    </p>
+
+    <p>
+    To illustrate the order of code emission more clearly, the following
+    example shows the emitted instructions, in the order in which they would
+    be written to the binary executable file, with the order in which they are
+    emitted indicated to the right.
+    </p>
+
+    <table class='inst'>
+      <tr>
+        <td class='inst'><i>expr1</i></td>
+        <td class='inst'>1</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>LAND</code> @End</td>
+        <td class='inst'>3</td>
+      </tr>
+      <tr>
+        <td class='inst'><i>expr2</i></td>
+        <td class='inst'>4</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>LAND</code> @End</td>
+        <td class='inst'>5</td>
+      </tr>
+      <tr>
+        <td class='inst'><i>expr3</i></td>
+        <td class='inst'>6</td>
+      </tr>
+      <tr>
+        <td class='inst'>&hellip;</td>
+      </tr>
+      <tr>
+        <td class='inst'>@End (null)</td>
+        <td class='inst'>2</td>
+      </tr>
+    </table>
+
+    <p>
+    Emitting code for the conditional expression (e.g. <code>expr1 if cond
+    else expr2</code>) also emits instructions out of order. First, the
+    conditional expression (the one between the <code>if</code> and the
+    <code>else</code>) is emitted. This is followed by two null instructions,
+    identified as the <q>false</q> target and the <q>end</q> target. The
+    current location is then pushed and replaced with the <q>false</q> target,
+    and the following code is emitted before popping back to the previous
+    location. First a conditional jump to the <q>false</q> location is
+    emitted, then the true expression (the one before the <code>if</code>),
+    and then an unconditional jump to the <q>end</q> location. After popping
+    the location, it is once more pushed and replaced this time with the
+    <q>end</q> location, whereupon the false expression (the one after the
+    <code>else</code>) is emitted. The previous location is restored again by
+    popping the location. The order of code generation and emission are
+    depicted below.
+    </p>
+
+    <table class='inst'>
+      <tr>
+        <td class='inst'><i>cond-expr</i></td>
+        <td class='inst'>1</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>JMPF</code> @False</td>
+        <td class='inst'>4</td>
+      </tr>
+      <tr>
+        <td class='inst'><i>true-expr</i></td>
+        <td class='inst'>5</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>JMP</code> @End</td>
+        <td class='inst'>6</td>
+      </tr>
+      <tr>
+        <td class='inst'>@False (null)</td>
+        <td class='inst'>2</td>
+      </tr>
+      <tr>
+        <td class='inst'><i>false-expr</i></td>
+        <td class='inst'>7</td>
+      </tr>
+      <tr>
+        <td class='inst'>@End (null)</td>
+        <td class='inst'>3</td>
+      </tr>
+    </table>
+
+    <h4>Simple expression statement</h4>
+
+    <p>
+    A simple expression by itself on a line constitutes a complete statement.
+    While most expressions are not used in this way, the function call
+    expression is often used like this. In all such cases, the expression is
+    emitted as described in the sections above, and then the resulting value
+    on the top of the stack is popped by emitting a <code>POP</code>
+    instruction.
+    </p>
+
+    <p>
+    At this point, it should be noted that expressions, as described above,
+    leave a single value on the top of the stack to be consumed by some other
+    higher-level expression or by a statement. On the other hand, the code
+    emitted by statements leaves the stack size unchanged at the end of code
+    execution. The remaining sections discuss the code emitted by various
+    other types of statements.
+    </p>
+
+    <h4>Assignment statement</h4>
+
+    <p>
+    Assignment statements can be chained (e.g., <code>a = b = c</code>) or
+    they can be augmented assignments (e.g., <code>j += 1</code>). We will
+    discuss each case separately. Simple assignment (e.g., <code>a = 0</code>)
+    is merely a special case of chained assignment.
+    </p>
+
+    <p>
+    Since assignment is a right-associative operation, chained (and simple)
+    assignments start by emitting the rightmost expression first, as a value.
+    For each remaining expression, from right to left, each is emitted as an
+    address, and then followed by a <code>SET</code> instruction, except for
+    the leftmost target expression, for which a <code>SETP</code> instruction
+    is used instead. A couple of examples should suffice to remove any
+    confusion. Consider the simplest case of assigning a value to a single
+    variable.
+    </p>
+
+    <blockquote><pre>
+a = 1</pre>
+    </blockquote>
+
+    <p>
+    The following code is generated for this simple assignment.
+    </p>
+
+    <table class='inst'>
+      <tr>
+        <td class='inst'><code>PUSHI 1</code></td>
+      </tr>
+      <tr>
+        <td class='inst'><code>LDA a</code></td>
+      </tr>
+      <tr>
+        <td class='inst'><code>SETP</code></td>
+      </tr>
+    </table>
+
+    <p>
+    There are no multiple targets, so only a single <code>SETP</code>
+    instruction is emitted. Now, let us consider a more complex chained
+    assignment.
+    </p>
+
+    <blockquote><pre>
+a = b = c = 2</pre>
+    </blockquote>
+
+    <p>
+    In this case, <code>SET</code> instructions are used to keep the assigned
+    value on the top of the stack.
+    </p>
+
+    <table class='inst'>
+      <tr>
+        <td class='inst'><code>PUSHI 2</code></td>
+      </tr>
+      <tr>
+        <td class='inst'><code>LDA c</code></td>
+      </tr>
+      <tr>
+        <td class='inst'><code>SET</code></td>
+        <td class='inst' style='text-align: left;'>
+        &larr; Leaves value on the stack
+        </td>
+      </tr>
+      <tr>
+        <td class='inst'><code>LDA b</code></td>
+        <td class='inst'></td>
+      </tr>
+      <tr>
+        <td class='inst'><code>SET</code></td>
+        <td class='inst' style='text-align: left;'>
+        &larr; Leaves value on the stack
+        </td>
+      </tr>
+      <tr>
+        <td class='inst'><code>LDA a</code></td>
+      </tr>
+      <tr>
+        <td class='inst'><code>SETP</code></td>
+        <td class='inst' style='text-align: left;'>
+        &larr; Pops value
+        </td>
+      </tr>
+    </table>
+
+    <p>
+    Augmented assignment (e.g., <code>+=</code>, etc.) is handled differently.
+    First, the left-hand expression is emitted as a value. The right-hand
+    value expression is then emitted, followed by the applicable binary
+    operation instruction (e.g., <code>ADD</code>, <code>SUB</code>, etc.).
+    Then the left-hand expression is emitted again, this time as an address,
+    followed by a final <code>SETP</code> instruction. Here is an example,
+    using the subtract operation.
+    </p>
+
+    <blockquote><pre>
+a -= 1</pre>
+    </blockquote>
+
+    <p>
+    The subtraction operation was chosen here to illustrate the importance of
+    the order in which the values are pushed onto the stack (since subtraction
+    is a noncommutative operation).
+    </p>
+
+    <table class='inst'>
+      <tr>
+        <td class='inst'><code>LD a</code></td>
+        <td class='inst' style='text-align: left;'>
+        &larr; Left operand (value)
+        </td>
+      </tr>
+      <tr>
+        <td class='inst'><code>PUSHI 1</code></td>
+        <td class='inst' style='text-align: left;'>
+        &larr; Right operand
+        </td>
+      </tr>
+      <tr>
+        <td class='inst'><code>SUB</code></td>
+        <td class='inst' style='text-align: left;'>
+        &larr; Operation
+        </td>
+      </tr>
+      <tr>
+        <td class='inst'><code>LDA a</code></td>
+        <td class='inst' style='text-align: left;'>
+        &larr; Left operand (address)
+        </td>
+      </tr>
+      <tr>
+        <td class='inst'><code>SETP</code></td>
+        <td class='inst' style='text-align: left;'>
+        &larr; Assignment with pop
+        </td>
+      </tr>
+    </table>
+
+    <p>
+    Asp supports sequence assignment (where a sequence of target expressions
+    appears on the left side and a sequence of values on the right). The
+    compiler does nothing different when this type of assignment statement is
+    encountered. When, for example, a tuple appears to the left of the
+    assignment operator, the tuple is emitted as an address (as described in
+    the section on <a href='#SimpleExpressionCode'>simple expressions</a>),
+    which is to say that a tuple of addresses is generated at run-time. The
+    <code>SET</code> and <code>SETP</code> instructions recognize tuple
+    targets and perform sequence assignment as described in the section on
+    <a href='#AssignmentInstructions'>assignment</a>.
+    </p>
+
+    <h4>Insertion statement</h4>
+
+    <p>
+    Like assignment statements, insertions (using <code>&lt;-</code>) can be
+    chained. The logic for emitting the code is similar to chained assignment
+    in that the final instruction is <code>INSP</code>, whereas
+    <code>INS</code> is used for the intermediate insertions. This leaves the
+    collection on the top of the stack until the end.
+    </p>
+
+    <p>
+    Insertions can use key/value pairs in addition to normal expressions. See
+    the part of the section on <a href='#SimpleExpressionCode'>simple
+    expressions</a> that discusses emission of dictionary expressions for a
+    description of how key/value pairs are created.
+    </p>
+
+    <h4>Global override statements</h4>
+
+    <p>
+    Both <code>global</code> and <code>local</code> statements take one or
+    more variable names as part of their syntax. The code generated for these
+    statements is straightforward. For each variable, the symbol is looked up
+    in the compiler's symbol table, and then a <code>GLOB</code> or
+    <code>LOC</code> instruction is emitted with the symbol value as an
+    operand.
+    </p>
+
+    <h4 id='DeleteCode'><code>del</code> statement</h4>
+
+    <p>
+    The <code>del</code> statement supports several types of expressions:
+    simple variable, indexing expression, and member selection. For each, the
+    expression is emitted, specifying to the <code>Emit</code> method that the
+    purpose is for a deletion, which affects the code emitted. After this, for
+    the simple variable case, a <code>DEL</code> instruction is emitted with
+    the symbol of the variable name as an immediate operand. For all other
+    cases, an <code>ERASE</code> instruction is emitted, which takes no
+    immediate operands, but uses the items on the stack to perform its
+    operation.
+    </p>
+
+    <h4><code>if</code> statement</h4>
+
+    <p>
+    The <code>if</code> statement is one of the most complex statements to
+    emit code for because it includes so many different flavours. The
+    statement may include an <code>else</code> clause, or not. It may also
+    have one or more <code>elif</code> clauses. Because the <code>if</code>
+    statement's code changes the flow of execution (using jump instructions),
+    the code emission logic makes liberal use of the <code>PushLocation</code>
+    and <code>PopLocation</code> methods to manage the current insertion
+    location. To understand how code is generated, several examples will be
+    employed.
+    </p>
+
+    <p>
+    Internally, the compiler represents each condition expression within an
+    <code>if</code> statement with the <code>IfStatement</code> class, which
+    contains the expression, <q>true</q> and <q>false</q> blocks, and a
+    pointer to another <code>IfStatement</code> object for any subordinate
+    <code>elif</code> clause.
+    </p>
+
+    <p>
+    Code generation for each part always starts by emitting the condition
+    expression followed by two null instructions, one labelled the <q>else</q>
+    location and the other the <q>end</q> location. Next, the current location
+    is pushed and replaced with the <q>else</q> location, after which a
+    <code>JMPF</code> instruction to the <q>else</q> location is emitted to
+    jump around the <q>true</q> block if the expression is false. Then the
+    <q>true</q> block is emitted. After this, if the <q>false</q> block is
+    present, or if there is a subordinate condition (i.e., <code>elif</code>),
+    an unconditional <code>JMP</code> instruction to the <q>end</q> location
+    is emitted and the previous location is popped. Thus ends the code
+    generated for the <q>true</q> block.
+    </p>
+
+    <p>
+    To handle the remainder of this part of the <code>if</code>, the current
+    location is pushed and replaced with the <q>end</q> location. If either
+    the <q>false</q> block or subordinate <code>elif</code> part is present,
+    it is emitted, and the current location is popped to finish the code
+    generation for this part.
+    </p>
+
+    <p>
+    As promised, here are some examples. First, we start with a simple
+    <code>if</code> statement with an <code>else</code> clause.
+    </p>
+
+    <blockquote><pre>
+if expr:
+    block1
+else:
+    block2</pre>
+    </blockquote>
+
+    <p>
+    The code is generated in the indicated order.
+    </p>
+
+    <table class='inst'>
+      <tr>
+        <td class='inst'><i>expr</i></td>
+        <td class='inst'>1</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>JMPF</code> @Else</td>
+        <td class='inst'>4</td>
+      </tr>
+      <tr>
+        <td class='inst'><i>block1</i></td>
+        <td class='inst'>5</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>JMP</code> @End</td>
+        <td class='inst'>* 6</td>
+      </tr>
+      <tr>
+        <td class='inst'>@Else (null)</td>
+        <td class='inst'>2</td>
+      </tr>
+      <tr>
+        <td class='inst'><i>block2</i></td>
+        <td class='inst'>* 7</td>
+      </tr>
+      <tr>
+        <td class='inst'>@End (null)</td>
+        <td class='inst'>3</td>
+      </tr>
+    </table>
+
+    <p>
+    For a simple <code>if</code> statement without an <code>else</code>
+    clause, the instructions marked with an asterisk would be omitted.
+    </p>
+
+    <p>
+    One more example should suffice to explain how the <code>elif</code> part
+    of the <code>if</code> statement works. Here is the source code.
+    </p>
+
+    <blockquote><pre>
+if expr1:
+    block1
+elif expr2:
+    block2
+else:
+    block3</pre>
+    </blockquote>
+
+    <p>
+    And here is the generated code, again with the order in which it was
+    generated off to the right.
+    </p>
+
+    <table class='inst'>
+      <tr>
+        <td class='inst'><i>expr1</i></td>
+        <td class='inst'>1</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>JMPF</code> @Else1</td>
+        <td class='inst'>4</td>
+      </tr>
+      <tr>
+        <td class='inst'><i>block1</i></td>
+        <td class='inst'>5</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>JMP</code> @End</td>
+        <td class='inst'>6</td>
+      </tr>
+      <tr>
+        <td class='inst'>@Else1 (null)</td>
+        <td class='inst'>2</td>
+      </tr>
+      <tr>
+        <td class='inst'><i>expr2</i></td>
+        <td class='inst'>7</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>JMPF</code> @Else2</td>
+        <td class='inst'>10</td>
+      </tr>
+      <tr>
+        <td class='inst'><i>block2</i></td>
+        <td class='inst'>11</td>
+      </tr>
+      <tr>
+        <td class='inst'>@Else2 (null)</td>
+        <td class='inst'>8</td>
+      </tr>
+      <tr>
+        <td class='inst'><i>block3</i></td>
+        <td class='inst'>12</td>
+      </tr>
+      <tr>
+        <td class='inst'>@End2 (null)</td>
+        <td class='inst'>9</td>
+      </tr>
+      <tr>
+        <td class='inst'>@End1 (null)</td>
+        <td class='inst'>3</td>
+      </tr>
+    </table>
+
+    <p>
+    If any of the blocks contain one or more <code>if</code> statements, their
+    code is generated in a likewise manner, but otherwise, the code generation
+    of these statements is not related to that of their parent
+    <code>if</code>/<code>elif</code>/<code>else</code> statements/clauses.
+    </p>
+
+    <h4><code>while</code> statement</h4>
+
+    <p>
+    Generating the code for the <code>while</code> statement is normally
+    straightforward. The test expression is emitted, followed by a conditional
+    jump around the body of the loop, and then there is an unconditional jump
+    at the end of the body that transfers control back to the loop test.
+    </p>
+
+    <table class='inst'>
+      <tr>
+        <td class='inst'>@Continue (null)</td>
+        <td class='inst'>1</td>
+      </tr>
+      <tr>
+        <td class='inst'><i>test-expr</i></td>
+        <td class='inst'>2</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>JMPF</code> @End</td>
+        <td class='inst'>4</td>
+      </tr>
+      <tr>
+        <td class='inst'><i>loop-block</i></td>
+        <td class='inst'>5</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>JMP</code> @Continue</td>
+        <td class='inst'>6</td>
+      </tr>
+      <tr>
+        <td class='inst'>@End (null)</td>
+        <td class='inst'>3</td>
+      </tr>
+    </table>
+
+    <p>
+    A complication arises when a <code>while</code> statement contains an
+    <code>else</code> clause (as is also supported in Python). The body of the
+    <code>else</code> clause is only executed if there are no loop iterations.
+    To accomplish this, a temporary (unnamed) variable is created and used to
+    indicate whether the loop body has been executed at least once.
+    </p>
+
+    <table class='inst'>
+      <tr>
+        <td class='inst'><code>PUSHF</code></td>
+        <td class='inst'>1</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>LDA <i>temp</i></code></td>
+        <td class='inst'>2</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>SETP</code></td>
+        <td class='inst'>3</td>
+      </tr>
+      <tr>
+        <td class='inst'>@Continue (null)</td>
+        <td class='inst'>4</td>
+      </tr>
+      <tr>
+        <td class='inst'><i>test-expr</i></td>
+        <td class='inst'>5</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>JMPF</code> @Else</td>
+        <td class='inst'>8</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>PUSHT</code></td>
+        <td class='inst'>9</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>LDA <i>temp</i></code></td>
+        <td class='inst'>10</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>SETP</code></td>
+        <td class='inst'>11</td>
+      </tr>
+      <tr>
+        <td class='inst'><i>loop-block</i></td>
+        <td class='inst'>12</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>JMP</code> @Continue</td>
+        <td class='inst'>13</td>
+      </tr>
+      <tr>
+        <td class='inst'>@Else (null)</td>
+        <td class='inst'>6</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>LD <i>temp</i></code></td>
+        <td class='inst'>14</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>JMPT</code> @End</td>
+        <td class='inst'>15</td>
+      </tr>
+      <tr>
+        <td class='inst'><i>else-block</i></td>
+        <td class='inst'>16</td>
+      </tr>
+      <tr>
+        <td class='inst'>@End (null)</td>
+        <td class='inst'>7</td>
+      </tr>
+    </table>
+
+    <p>
+    The first three instructions define a temporary variable with an initial
+    value of <code>False</code>. The three instructions just prior to the loop
+    body set this variable to <code>True</code>, so that after the loop is
+    finished, it will be <code>True</code> only if the loop's body has
+    executed at least once. The two instructions prior to the
+    <code>else</code> block test this variable and skip over the
+    <code>else</code> block if the variable is <code>True</code>.
+    </p>
+
+    <h4><code>for</code> statement</h4>
+
+    <p>
+    The <code>for</code> statement is used for iterating, either through a
+    collection or over a range. Between the <code>for</code> and
+    <code>in</code> keywords is a target expression. The target expression
+    can be a simple target (variable, indexing expression, or member
+    selection), or it can be a tuple (of arbitrary depth) of targets. The code
+    for both simple targets and tuples has already been covered above
+    <a href='#SimpleExpressionCode'>simple expressions</a>). The code emitted
+    for a target expression is a combination of one or both, and the
+    instructions emitted for simple targets are of the <q>address</q> variety
+    (i.e., <code>LDA</code>, <code>IDXA</code>, or <code>MEMA</code>).
+    </p>
+
+    <p>
+    It should be noted that, like the <code>while</code> statement, the
+    <code>for</code> statement also supports an <code>else</code> clause. We
+    will not explore the actual code generated in this case, because the
+    concept is identical to that of the <code>while</code> statement. We will
+    instead concentrate on the simple <code>for</code> statement without an
+    <code>else</code> clause.
+    </p>
+
+    <table class='inst'>
+      <tr>
+        <td class='inst'><i>iterable-expr</i></td>
+        <td class='inst'>1</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>SITER</code></td>
+        <td class='inst'>2</td>
+      </tr>
+      <tr>
+        <td class='inst'>@Test (null)</td>
+        <td class='inst'>3</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>TITER</code></td>
+        <td class='inst'>6</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>JMPF</code> @End</td>
+        <td class='inst'>7</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>DITER</code></td>
+        <td class='inst'>8</td>
+      </tr>
+      <tr>
+        <td class='inst'><i>target-expr</i> (as address)</td>
+        <td class='inst'>9</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>SETP</code></td>
+        <td class='inst'>10</td>
+      </tr>
+      <tr>
+        <td class='inst'><i>loop-block</i></td>
+        <td class='inst'>11</td>
+      </tr>
+      <tr>
+        <td class='inst'>@Continue (null)</td>
+        <td class='inst'>4</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>NITER</code></td>
+        <td class='inst'>12</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>JMP</code> @Test</td>
+        <td class='inst'>13</td>
+      </tr>
+      <tr>
+        <td class='inst'>@End (null)</td>
+        <td class='inst'>5</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>POP</code></td>
+        <td class='inst'>14</td>
+      </tr>
+    </table>
+
+    <p>
+    The code starts with the instructions comprising the iterable expression
+    (the one to the right of the <code>in</code> keyword). The
+    <code>SITER</code> instruction is emitted next, which replaces the
+    iterable expression on the top of the stack with an iterator that refers
+    to the iterable. The iterator remains on the stack throughout the entire
+    execution of the loop, which is why the final instruction emitted is a
+    <code>POP</code> instruction.
+    </p>
+
+    <p>
+    The next instruction is <code>TITER</code>, which checks whether the
+    iterator on the top of the stack has reached its end (which may be its
+    initial condition, e.g., for empty collections). The conditional
+    <code>JMPF</code> instruction that follows will jump to the final
+    <code>POP</code> instruction when this is the case.
+    </p>
+
+    <p>
+    If the iterator is not at its end, the next instruction,
+    <code>DITER</code>, dereferences the iterator, pushing its value onto the
+    stack. (Note that the iterator itself is still on the stack, immediately
+    underneath the top entry.) This is followed by the instructions of the
+    target expression (as an address) and a <code>SETP</code> instruction to
+    assign the dereferenced value to the target(s).
+    </p>
+
+    <p>
+    After emitting the code of the loop's body, a <code>NITER</code>
+    instruction is emitted, which will advance the iterator, which is on the
+    top of the stack. This is followed by an unconditional jump to the
+    <code>TITER</code> instruction previously emitted, which will test the
+    iterator again. As mentioned above, the final instruction is a
+    <code>POP</code>, which pops the iterator value off the stack, returning
+    the stack to the state it was in prior to starting the loop.
+    </p>
+
+    <p>
+    Notice that the @Continue null statement is never used as the target of a
+    jump instruction in the code emitted for the <code>for</code> statement
+    itself. This is explained in the next section.
+    </p>
+
+    <h4><code>break</code> and <code>continue</code> statements</h4>
+
+    <p>
+    To support the <code>break</code> and <code>continue</code> statements,
+    all loop statements define two code locations: a <q>continue</q> location
+    and an <q>end</q> location. When a <code>break</code> statement is
+    encountered, the compiler locates the nearest enclosing loop statement
+    (<code>while</code> or <code>for</code>) and emits an unconditional
+    <code>JMP</code> instruction to the loop statement's <q>end</q> location.
+    Likewise, when a <code>continue</code> statement is encountered, the
+    emitted <code>JMP</code> instruction target's the nearest enclosing loop's
+    <q>continue</q> location.
+    </p>
+
+    <p>
+    So, for the <code>while</code> loop, the <q>continue</q> location is the
+    test expression, and the <q>end</q> location is after all the emitted
+    code. For the <code>for</code> statement, the <q>continue</q> location is
+    at the point where the iterator is advanced, just prior to repeating the
+    test, and the <q>end</q> location is the final <code>POP</code>
+    instruction that pops the iterator off the stack.
+    </p>
+
+    <h4>Function statements</h4>
+
+    <p>
+    Script functions are defined with the <code>def</code> statement, which
+    specifies the name of the function and a list of parameters. The general
+    approach to emitting code for a function definition is to emit an
+    unconditional jump statement at the start to jump over the body of the
+    function (so that it doesn't execute), emit the function's code, and then
+    afterwards, create the function object and assign it to a variable by the
+    name of the function.
+    </p>
+
+    <table class='inst'>
+      <tr>
+        <td class='inst'><code>JMP</code> @Define</td>
+        <td class='inst'>3</td>
+      </tr>
+      <tr>
+        <td class='inst'>@Entry (null)</td>
+        <td class='inst'>1</td>
+      </tr>
+      <tr>
+        <td class='inst'><i>function-block</i></td>
+        <td class='inst'>4</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>PUSHN</code></td>
+        <td class='inst'>5</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>RET</code></td>
+        <td class='inst'>6</td>
+      </tr>
+      <tr>
+        <td class='inst'>@Define (null)</td>
+        <td class='inst'>2</td>
+      </tr>
+      <tr>
+        <td class='inst'><i>parameter-list</i></td>
+        <td class='inst'>7</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>PUSHCA</code> @Entry</td>
+        <td class='inst'>8</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>MKFUN</code></td>
+        <td class='inst'>9</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>LDA name</code></td>
+        <td class='inst'>10</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>SETP</code></td>
+        <td class='inst'>11</td>
+      </tr>
+    </table>
+
+    <p>
+    The <code>PUSHN</code> and <code>RET</code> instructions immediately
+    following the function's body are optional and are emitted wherever the
+    function's last statement is not a <code>return</code> statement, thus
+    providing a default return value of <code>None</code>. The function is
+    defined by pushing the parameter list and the function's entry point onto
+    the stack, followed by the <code>MKFUN</code> instruction, which pops the
+    two values off the stack and pushes a function object. The next two
+    instructions, <code>LDA</code> and <code>SETP</code>, assign the function
+    object to a variable with the function's name (symbol).
+    </p>
+
+    <p>
+    The code emitted by a <code>return</code> statement is very simple and
+    consists of a return value expression (which may be a tuple) followed by
+    the <code>RET</code> instruction. If no return value is specified, a
+    <code>PUSHN</code> instruction is emitted in lieu of the missing
+    expression to return the default <code>None</code> value. 
+    </p>
+
+    <p>
+    Function call expressions are described above in the section on
+    <a href='#SimpleExpressionCode'>simple expressions</a>.
+    </p>
+
+    <h4><code>import</code> statement</h4>
+
+    <p>
+    When the compiler processes a module, whether it is the main module, or
+    one specified in an <code>import</code> statement, it emits an
+    <code>ADDMOD</code> instruction at the beginning of the entire code for
+    the script. The module's symbol and code address are specified as
+    immediate operands. This ensures that all the modules are known by their
+    symbol right from the start of script execution. After this list of
+    <code>ADDMOD</code> instructions at the top of the script, a
+    <code>LDMOD&nsbp;0</code> instruction is emitted to load (i.e., execute)
+    the main module.
+    </p>
+
+    <p>
+    When an <code>import</code> statement is encountered, the module's name is
+    added to a global list of modules so that the actions mentioned above can
+    happen, and then code for the <code>import</code> statement itself is
+    emitted, as described below.
+    </p>
+
+    <p>
+    First, an <code>LDMOD</code> instruction is emitted, specifying the
+    module's symbol as an immediate operand. The engine will use the symbol to
+    look up the module definition to determine its code entry point and
+    whether the module has been previously loaded (i.e., executed). If the
+    module has not been previously loaded, the engine executes the module's
+    code at this point.
+    </p>
+
+    <p>
+    Then, after the <code>LDMOD</code> instruction, in the case of a simple
+    <code>import</code>, two instructions are emitted, <code>PUSHM</code> and
+    <code>SETP</code>, to assign the module to a variable in the local
+    namespace, allowing subsequent use of module member lookup.
+    </p>
+
+    <p>
+    In the more complex case of the <q><code>from module import name,
+    &hellip</code></q> syntax, four instructions are emitted for each name in
+    the names list. These instructions are <code>PUSHM</code>,
+    <code>MEM</code>, <code>LDA</code>, and <code>SETP</code>. The first two
+    look up the name in the module, pushing its value onto the stack. The
+    other two instructions load the address of the name in the local namespace
+    and assign its value.
+    </p>
+
+    <h4><code>assert</code> statement</h4>
+
+    <p>
+    The assert statement ensures that a given expression is true. The code to
+    implement this is simple and consists of the code for the expression
+    followed by a conditional jump around an <code>ABORT</code> instruction.
+    </p>
+
+    <table class='inst'>
+      <tr>
+        <td class='inst'><i>expr</i></td>
+        <td class='inst'>1</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>JMP</code> @End</td>
+        <td class='inst'>3</td>
+      </tr>
+      <tr>
+        <td class='inst'><code>ABORT</code></td>
+        <td class='inst'>4</td>
+      </tr>
+      <tr>
+        <td class='inst'>@End (null)</td>
+        <td class='inst'>2</td>
+      </tr>
+    </table>
+
+    <p>
+    In the case that the compiler can determine that the expression is a
+    constant expression that would convert to <code>False</code> (e.g.,
+    <code>assert False</code>), only the <code>ABORT</code> instruction is
+    emitted.
+    </p>
+
+    <h2 id='AppSpecGenerator'>Application specification generator</h2>
+
+    <p>
+    As mentioned in the section on the <a href='#AppSpec'>application
+    specification</a>, above, the script compiler requires a binary
+    application specification file (<q><span class='tt'>.aspec</span></q>) as
+    input. This file is generated by the application specification generator,
+    the source code of which can be found in the
+    <span class='tt'>appspec</span> directory of the source repository.
+    </p>
+
+    <p>
+    The generator is similar in design to the script compiler, having a much
+    simpler grammar to support the definitions of variables with assigned
+    values and functions assigned to application C functions. The generator
+    generates three files: the binary application specification file
+    (<q><span class='tt'>.aspec</span></q>), mentioned above, and C header
+    (<q><span class='tt'>.h</span></q>) and body
+    (<q><span class='tt'>.c</span></q>) files, for inclusion into the
+    application build.
+    </p>
+
+    <p>
+    The C header file (<q><span class='tt'>.h</span></q>) includes a
+    declaration for each C function that a script can invoke. The application
+    should include this header in any module that defines these functions to
+    ensure the signature is correct. The header also declares a global
+    variable of type <code>AppSpec</code>. The application must pass the
+    address of this variable to the <code>AspInitialize</code> function.
+    </p>
+
+    <p>
+    The C body file (<q><span class='tt'>.c</span></q>) defines the content of
+    the <code>AppSpec</code> object and the dispatch function that the engine
+    will use to look up and call the C functions. The generated code makes use
+    of the <code>AspParameterValue</code> and
+    <code>AspGroupParameterValue</code> functions (defined in the engine's
+    <span class='tt'>function.c</span> module) to form a call to the C
+    function with appropriate formal parameters defined, alleviating the
+    application from the burden of parsing the parameter list by position.
+    </p>
+
+    <p>
+    The connection between the script's executable code and the application is
+    of utmost importance. The application specification generator defines
+    symbol values for each name in the specification source file
+    (<q><span class='tt'>.asps</span></q>), and the code generated by the
+    script compiler relies on the symbols matching those used by the generated
+    dispatch function. Furthermore, a change in the value of an assigned
+    variable or default parameter value can change the behaviour of a script.
+    So, to ensure that only code that has been compiled for an application can
+    run in that application, a cyclic redundancy check value (CRC) of the
+    application specification is computed and included in the generated C code
+    and in the binary <q><span class='tt'>.aspec</span></q> file. When
+    compiling a script, the script compiler copies the CRC value from the
+    binary spec file into the script binary's header. When the engine loads a
+    script, it compares the CRC obtained from the generated C code against
+    that in the script's header. If the two match, the script is permitted to
+    run. Otherwise, an error is reported, in which case, the likely remedy is
+    to recompile the script using the appropriate spec file.
+    </p>
+
+    <p>
+    The CRC value is based on the following items in the application
+    specification source file (<q><span class='tt'>.asps</span></q>):
+    </p>
+
+    <ul>
+      <li>
+      Variable or function name, in alphabetical order.
+      </li>
+      <li>
+      For functions: Parameter names and associated default values, if
+      specified.
+      </li>
+      <li>
+      For variables: Variable name and value.
+      </li>
+    </ul>
+
+    <p>
+    One small change, for example, to the name of a parameter, the order of
+    parameters, or the value of a variable, will change the CRC value,
+    necessitating the recompilation of any scripts that depend on the
+    definition. However, changing the order of definitions in a spec will not
+    normally alter the CRC value computed, since all the names (variable or
+    function) are sorted alphabetically before performing the calculation. The
+    only time this would not be the case is if two entries share the same
+    name, in which case, the latter definition replaces the former.
+    </p>
+
+    <p>
+    The specific CRC calculation is the commonly used CRC-32/ISO-HDLC spec.
+    The CRC calculation itself is implemented the
+    <span class='tt'>crc.h</span>/<span class='tt'>c</span> module, which
+    mentions a very useful web site dedicated to the subject of CRCs. The CRC
+    specification parameters are defined in the <code>ComputeCheckValue</code>
+    method of the <code>Generator</code> class, in module
+    <span class='tt'>generator&#8209;output.cpp</span>.
+    </p>
+
+    <hr>
+
+  </body>
+</html>

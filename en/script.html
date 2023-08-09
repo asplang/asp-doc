@@ -1,0 +1,2098 @@
+<!DOCTYPE html>
+<html lang='en'>
+
+  <head>
+
+    <meta name='keywords' content='Asp, Python, Script, Embedded'>
+    <link rel='stylesheet' href='styles.css'>
+
+    <title>Asp Script Writer's Guide</title>
+
+  </head>
+
+  <body>
+
+    <center><big>Asp Scripting Platform</big></center>
+
+    <p>
+    <a href='index.html'>Other documents</a>
+    </p>
+
+    <hr>
+
+    <h1>Asp Script Writer's Guide</h1>
+
+    <h2>Welcome to Asp!</h2>
+
+    <p>
+    The purpose of this document is to teach you how to use the Asp
+    language to write scripts for embedded applications and then prepare
+    them for execution. So, what is Asp?
+    </p>
+
+    <p>
+    Asp is a scripting language and a set of tools for working with scripts.
+    The Asp language is very similar in style to Python. This is where Asp
+    gets its name from, both being members of the snake family of languages!
+    Python is a full-featured scripting environment, complete with an
+    extensive set of libraries, whereas Asp is a smaller, simpler language
+    and environment intended to address the need to provide scripting
+    capabilities to small embedded applications. Python scripts typically
+    run on a personal computer and may interface with files, network
+    connections, databases, etc. On the other hand, Asp scripts typically
+    run inside small devices and interface only with the software that
+    controls that device. You can think of Asp as Python's little cousin.
+    So, familiarity with Python will be extremely beneficial in learning Asp.
+    </p>
+
+    <p>
+    While Python scripts may be run from their source <q>.py</q> file(s),
+    Asp source files must be compiled to prepare them for execution on the
+    intended target. The Python interpreter uses dynamic memory allocation
+    to meet the needs of running scripts. The Asp engine, where the
+    executable script runs, avoids use of dynamic memory and recursion so
+    that scripts will not negatively impact the embedded application in
+    which they are run. While it is theoretically possible to build the
+    Python interpreter into an embedded application, doing so presents many
+    challenges. Asp is intended to overcome these challenges by providing a
+    well behaved, limited environment in which to run scripts.
+    </p>
+
+    <h3>Where else to look</h3>
+
+    <p>
+    Asp script writers do not live in a vacuum. Adding Asp support to a
+    device is the job of the embedded software developer. It is this
+    person's job to provide the mechanisms for running Asp scripts, and to
+    make application functions and variables available to scripts to provide
+    the desired functionality. The Asp development environment is described
+    in the <a href='app.html'>Application Developer's Guide</a>.
+    </p>
+
+    <p>
+    The remainder of this document describes the Asp language in detail, the
+    environment in which scripts run, and the methods used to prepare
+    scripts for execution.
+    </p>
+
+    <h2>Getting started</h2>
+
+    <p>
+    To learn a new language, it is helpful to have an environment in which
+    to practice. From the foregoing discussion, it appears that if you don't
+    have a device that supports Asp, you cannot run an Asp script. However,
+    there is a standalone Asp application that allows you write scripts that
+    can be run on your personal computer. This is the best way to learn the
+    Asp language since it simplifies the script development effort and
+    allows quick turnaround on script runs. However, the standalone
+    application supports only generic functions; working out logic that
+    interfaces with an application must be done with the specific device or
+    a suitable emulator.
+    </p>
+
+    <p>
+    Whether it is run on a target device or with the standalone application,
+    an Asp script must first be compiled using the Asp script compiler, aspc.
+    </p>
+
+    <p>
+    The compiler requires the user to specify the name of the script source
+    (<q>.asp</q>) and an application specification file
+    (<q><span class='tt'>.aspec</span></q>). The application specification
+    file defines the functions and variables in the application that are
+    available to the script and is typically provided by the developer of
+    the device on which the script will run. In the case of the standalone
+    environment, it is typically installed along with the compiler in a
+    well-known location (e.g.,
+    <span class='tt'>/usr/etc/asp/standalone.aspec</span></span>).
+    </p>
+
+    <p>
+    For convenience, the application specification file can be specified via
+    the <span class='tt'>ASP_SPEC_FILE</span> environment variable. If
+    <span class='tt'>ASP_SPEC_FILE</span> is not defined, the application
+    specification file may be specified on the command line. If it is not
+    defined in either way, the compiler looks for a file named app.aspec in
+    the current working directory (which, depending on your operating system,
+    can be set up as a link to the real file if desired). The following
+    command assumes that the application specification file is defined in
+    one of the two ways described.
+    </p>
+
+    <blockquote>
+    <samp>$&nbsp;</samp><kbd>aspc myscript.asp</kbd><br>
+    <samp>Using /usr/etc/asp/standalone.aspec</samp><br>
+    <samp>myscript.aspe: 439 bytes</samp><br>
+    </blockquote>
+
+    <p>
+    Regardless of how the application specification file is identified, the
+    compiler writes a line of text to indicate what file it is using and,
+    assuming a successful compile, a line indicating the size of the
+    resulting executable.
+    </p>
+
+    <p>
+    When specifying the application specification file on the command line,
+    the input files can be specified in either order. So, either of these
+    two commands will work identically.
+    </p>
+
+    <blockquote>
+    <samp>$&nbsp;</samp><kbd>aspc myscript.asp myapp.aspec</kbd><br>
+    <samp>$&nbsp;</samp><kbd>aspc myapp.aspec myscript.asp</kbd><br>
+    </blockquote>
+
+    <p>
+    If you are working primarily with one application, it is likely more
+    convenient to assign the file name to the
+    <span class='tt'>ASP_SPEC_FILE</span> environment variable. Writing
+    scripts for multiple applications may be more conveniently managed by
+    storing an <span class='tt'>app.aspec</span> file (or link) in the same
+    directory where the scripts reside.
+    </p>
+
+    <p>
+    To recap, the application specification file is sought in the following
+    ways, in the order given:
+    </p>
+
+    <ol>
+      <li>
+      Specified on the command line.
+      </li>
+      <li>
+      Specified with the <span class='tt'>ASP_SPEC_FILE</span> environment
+      variable.
+      </li>
+      <li>
+      In the <span class='tt'>app.aspec</span> file in the current working
+      directory.
+      </li>
+    </ol>
+
+    <p>
+    If successful, the compiler generates an binary script executable with a
+    <q><span class='tt'>.aspe</span></q> suffix. This is the file that will
+    run in the Asp engine, or if compiled using the standalone spec, the
+    standalone application.
+    </p>
+
+    <p>
+    If script execution ends abnormally, error information is normally
+    provided, which includes an error code and the engine's program counter
+    (the location in the script executable where the script ended). If the
+    script was run in the standalone application, the error code will be
+    translated to a meaningful message, and the program counter will be
+    translated to a source file name and location (line and column).
+    </p>
+
+    <h3>Hello, World</h3>
+
+    <p>
+    As with all programming endeavors, the first step is to write a
+    <q>Hello, world</q> application and then run the tools through their
+    paces. To this end, we will use the standalone application to run the
+    classic program, written in Asp. To start, write the following content
+    into a file named <span class='tt'>hello.asp</span>.
+    </p>
+
+    <blockquote><pre>
+print('Hello, world')</pre>
+    </blockquote>
+
+    <p>
+    Like in Python, the single quotes may be replaced with double quotes
+    (<code>"</code>); it's a matter of style. The next step is to compile the
+    script.
+    </p>
+
+    <blockquote>
+    <samp>$&nbsp;</samp><kbd>aspc hello.asp</kbd><br>
+    <samp>Using /usr/etc/asp/standalone.aspec</samp><br>
+    <samp>hello.aspe: 43 bytes</samp><br>
+    </blockquote>
+
+    <p>
+    Here we assume that the standalone spec has been specified via the
+    <span class='tt'>ASP_SPEC_FILE</span> environment variable. At this point,
+    we should have a binary script executable. The compiler also generates
+    a listing file (<q><span class='tt'>.lst</span></q>) and a debug
+    information file (<q><span class='tt'>.aspd</span></q>), both of which we
+    briefly cover later.
+    </p>
+
+    <blockquote><pre>
+$ ls -l hello.*
+-rw-rw-r-- 1 user user  22 Jul 29 14:10 hello.asp
+-rw-rw-r-- 1 user user  83 Nov 23 16:36 hello.aspd
+-rw-rw-r-- 1 user user  43 Nov 23 16:36 hello.aspe
+-rw-rw-r-- 1 user user 932 Nov 23 16:36 hello.lst</pre>
+    </blockquote>
+
+    <p>
+    Since this script was compiled for the standalone application, we can now
+    run it on our computer with the following command. (Note that the file
+    name suffix <q><span class='tt'>.aspe</span></q> may be present or
+    omitted.)
+    </p>
+
+    <blockquote>
+    <samp>$&nbsp;</samp><kbd>asps hello.asp</kbd><br>
+    <samp>Hello, world</samp><br>
+    </blockquote>
+
+    <p>
+    The standalone application can also display version information at the
+    beginning of the run and memory utilization at the end by specifying the
+    verbose option.
+    </p>
+
+    <blockquote>
+    <samp>$&nbsp;</samp><kbd>asps -v hello.asp</kbd><br>
+    <samp>Engine version: 0.7.3.1</samp><br>
+    <samp>Code version: 0.7.1.1</samp><br>
+    <samp>Hello, world</samp><br>
+    <samp>Low free count: 1847 (max 2048)</samp><br>
+    </blockquote>
+
+    <p>
+    Arguments can also be passed to the script by adding them after the script
+    name. This is described later when external script arguments are covered.
+    </p>
+
+    <p>
+    Options are also available for modifying the amount of memory allocated
+    for the code (<span class='tt'>-c</span>) and data
+    (<span class='tt'>-d</span>). See the help information by using either the
+    <span class='tt'>-?</span> or <span class='tt'>-h</span> option.
+    </p>
+
+    <h2>The Asp language</h2>
+
+    <p>
+    As mentioned above, Asp resembles Python in many ways. All the usual rules
+    apply, for example: case sensitivity, indenting to indicate structure,
+    etc. However, while Asp supports the basic features like conditionals
+    (<code>if</code>&hellip;<code>elif</code>&hellip;<code>else</code>), loops
+    (<code>while</code> and <code>for</code>) and functions (<code>def</code>
+    and <code>return</code>), there are several features it does not inherit
+    from its bigger cousin, such as&hellip;
+    </p>
+
+    <ol>
+      <li>
+      Arbitrary precision integers
+      </li>
+      <li>
+      Complex number support
+      </li>
+      <li>
+      Multidimensional arrays
+      </li>
+      <li>
+      Generators (<code>yield</code>)
+      </li>
+      <li>
+      Lambdas and closures
+      </li>
+      <li>
+      List comprehensions
+      </li>
+      <li>
+      Exception handling (<code>try</code>&hellip;<code>except</code>&hellip;
+      <code>finally</code>) and contexts (<code>with</code>)
+      </li>
+      <li>
+      Object-oriented programming (<code>class</code>)
+      </li>
+      <li>
+      Threads
+      </li>
+      <li>
+      Files
+      </li>
+    </ol>
+
+    <p>
+    The first point (arbitrary precision integers) needs further explanation.
+    Since Asp scripts are intended to run in small-footprint applications,
+    variable types are kept simple. Therefore, integers are restricted to 32
+    bits in width and are signed.
+    </p>
+
+    <p>
+    Most of the other features are targeted at larger applications for which
+    Python is well suited. Small embedded application will usually have rather
+    mild demands on the scripting environment, so these features where
+    omitted, in part, to reduce the overall footprint of the Asp engine
+    library.
+    </p>
+
+    <p>
+    Also, the absence of explicit file support is because many embedded
+    applications to not have a file system. However, there is nothing stopping
+    an application from adding the necessary functions to support file
+    operations if the application itself supports files. Asp does not support
+    a special file type, but files can be identified with, for example,
+    integer file handles, as is done with the POSIX <code>open</code>,
+    <code>read</code>, <code>write</code>, <code>ioctl</code>, and
+    <code>close</code> functions.
+    </p>
+
+    <h3>Syntax conventions</h3>
+
+    <p>
+    As mentioned above, Asp inherits Python's general approach to syntax and
+    structure. Statements normally end at the end of the line (newline). Line
+    continuation is possible using the backslash character (\) as the last
+    character on a line (but see comments, below). While not recommended,
+    multiple statements can exist on the same line by separating them with the
+    semicolon (;).
+    </p>
+
+    <p>
+    A colon (<code>:</code>) at the end of a statement indicates that the
+    following lines of code, which must be indented, are controlled by that
+    statement. The end of a controlled set of lines is indicated by reverting
+    to the previous indentation level. There is a short-cut to this
+    arrangement: If the controlling statement controls only a single
+    statement, it may follow the colon.
+    <p>
+
+    </p>
+    Comments start with the number sign (<code>#</code>) and end at the line
+    termination (newline) and may follow a line of code or exist on a line by
+    themselves. Unlike in Python, a comment may follow a line continuation
+    character, even with intervening spaces.
+    </p>
+
+    <h3>Types</h3>
+
+    <p>
+    In Asp, objects are typed, whereas variables are not. The types supported
+    in Asp are slightly different than those in Python. The types are as
+    follows:
+    </p>
+
+    <ul>
+      <li>
+      Singleton types: None, Ellipsis
+      </li>
+      <li>
+      Numeric types: Boolean, Integer, and Floating-point
+      </li>
+      <li>
+      Range
+      </li>
+      <li>
+      String
+      </li>
+      <li>
+      Collections: Tuple, List, Set, and Dictionary
+      </li>
+      <li>
+      Iterator
+      </li>
+      <li>
+      Function
+      </li>
+      <li>
+      Module
+      </li>
+      <li>
+      Type
+      </li>
+    </ul>
+
+    <p>
+    Each is described in the sections below.
+    </p>
+
+    <h4>Singleton types</h4>
+
+    <p>
+    The None and Ellipsis types are identical to those supported in Python.
+    They both have only a single member. The value of the None type is
+    <code>None</code>; the value of the Ellipsis type is </code>...</code>.
+    </p>
+
+    <p>
+    The <code>None</code> value is useful as a placeholder to indicate that a
+    variable has no other useful value. It is also the default value returned
+    from functions that exits without a <code>return</code> statement or with
+    a <code>return</code> statement with no return value(s).
+    </p>
+
+    <p>
+    The value of the Ellipsis type, namely <code>...</code>, is not as useful
+    in Asp as it may be in Python. In Python, it is used as a wildcard in
+    multidimensional array indexing. Since Asp does not support
+    multidimensional arrays (other than implemented as lists of lists), it is
+    less important. However, it exists and exhibits the same behaviour in
+    other ways as in Python (e.g., conversion to Boolean value).
+    </p>
+
+    <h4>Booleans</h4>
+
+    <p>
+    The Boolean type supports two values, <code>False</code> and
+    <code>True</code>, which can be directly assigned to a variable. Also,
+    several contexts call for conversion to a Boolean value, such as if and
+    while statement expressions.
+    </p>
+
+    <p>
+    Asp also supports the usual logical operators <code>and</code>,
+    <code>or</code>, and <code>not</code>, which operate on Boolean values.
+    </p>
+
+    <h4>Integers</h4>
+
+    <p>
+    Unlike Python, the Asp integer type is a 32-bit signed value, giving it a
+    range of roughly &plusmn;2 million. The reason for this is pragmatic: the
+    usual target system for script execution is an embedded platform,
+    typically having limited resources. Other programming languages supporting
+    much more demanding applications have survived quite well without the need
+    for arbitrary precision integers (which is what Python supports). Besides,
+    many embedded platforms do not support integers larger than 32 bits.
+    </p>
+
+    <p>
+    This means that if integer values in your script become large enough,
+    wrap-around could occur. This should not be a problem in most situations,
+    but now you have been warned.
+    </p>
+
+    <h4>Floating-point values</h4>
+
+    <p>
+    Fractional values are represented with the IEEE Standard for
+    Floating-Point Arithmetic (IEEE 754) double precision type (64 bit format:
+    53 bit significand, 11 bit exponent). Floating-point constants support the
+    usual <q>e</q> notation for specifying the exponent part.
+    </p>
+
+    <p>
+    Note that while Python supports complex numbers directly, Asp does not.
+    This is not a great loss, however. If needed, complex numbers can be
+    emulated using 2&#8209;tuples and functions designed to interact with
+    them.
+    </p>
+
+    <h4>Ranges</h4>
+
+    <p>
+    Asp is different from Python in that it supports a native range type. The
+    closest thing to this in Python is the built-in <code>xrange</code> class.
+    The general Asp syntax is as follows:
+    </p>
+
+    <blockquote><pre>
+[start]..[end][:step]</pre>
+    </blockquote>
+
+    <p>
+    All three components must yield an integer value. Each component may be
+    omitted, in which case a default value is supplied: 0 for
+    <code>start</code>, &plusmn;&infin; for <code>end</code> (depending on the
+    sign of <code>step</code>), and 1 for <code>step</code>. If
+    <code>step</code> is omitted, the trailing colon must also be omitted.
+    Here are some valid range expressions and their meanings:
+    </p>
+
+    <blockquote><pre>
+..5             # From 0 to 4
+1..10:2         # The odd numbers between 1 and 9, inclusive
+..              # A boundless range start at 0
+i..j+k          # From i to j+k-1, inclusive
+5..0:-1         # From 5 down to 1, in that order</pre>
+    </blockquote>
+
+    <p>
+    Ranges can be used as array indices to perform slicing operations. They
+    are also iterable, making them very useful in for statements.
+    </p>
+
+    <h4>Strings</h4>
+
+    <p>
+    Strings are sequences of bytes, usually interpreted as ASCII characters.
+    (In Python 3, strings are composed of Unicode characters; Asp does not
+    support Unicode.) As in Python, strings are immutable. They are considered
+    sequences, however, making it possible to access each character within a
+    string as a separate string.
+    </p>
+
+    <p>
+    Strings are expressed much the same as in Python. The contents of a string
+    may be enclosed in either single or double quotes (<code>'</code> or
+    <code>"</code>) and they support the usual escape sequences via the
+    backslash (<code>\</code>). Raw and triple-quoted string syntax is not
+    supported.
+    </p>
+
+    <h4>Tuples and lists</h4>
+
+    <p>
+    Tuples and lists are essentially identical to their Python counterparts.
+    Each is specified with a comma separated list of elements, tuples being
+    enclosed in paratheses (<code>()</code>) and lists in brackets
+    (<code>[]</code>). To make a 1&#8209;tuple, a trailing comma must be used
+    to distinguish the tuple's paratheses from those used in expressions for
+    overriding operator precedence. As in Python, the difference between the
+    two is that tuples are immutable while lists are mutable.
+    </p>
+
+    <h4>Sets and dictionaries</h4>
+
+    <p>
+    Sets and dictionaries in Asp differ in many ways from their Python
+    analogues. Both organize their members for random access. However, while
+    Python uses hash tables to implement these data structures, Asp implements
+    them as binary trees (for space efficiency). This means that members are
+    stored in a well-defined order. When iterating over these collections,
+    members are accessed in that order.
+    </p>
+
+    <p>
+    As in Python, the difference between sets and dictionaries is that sets
+    contain only keys, while dictionaries contain key/value pairs.
+    </p>
+
+    <p>
+    Another difference between Python and Asp is how empty collections are
+    expressed. In Asp, the empty set is simply <code>{}</code>, the same as
+    Python's empty dictionary. To express an empty dictionary, the expression
+    <code>{:}</code> must be used. Any attempt to treat a set like a
+    dictionary (and vice versa) will result in a run-time error.
+    </p>
+
+    <blockquote><pre>
+s = {}          # s is assigned an empty set
+d = {:}         # d is assigned an empty dictionary
+s2 = {1, 3, 5}  # a set with 3 keys
+d2 = {'one': 1, 'two': 2, 'three': 3} # a dictionary with 3 kv pairs</pre>
+    </blockquote>
+
+    <p>
+    As can be seen above, expressions of non-empty sets and dictionaries is
+    the same as in Python.
+    </p>
+
+    <p>
+    Both types of collection support insertion and deletion operations, as
+    well as membership tests and value access, all of which are covered in the
+    subsequent section on operations.
+    </p>
+
+    <h4>Iterators</h4>
+
+    <p>
+    Iterators are objects that enable the traversal of objects within a
+    collection. The <code>for</code> statement uses them to visit each member
+    of a collection. Unlike in Python, when iterating over a dictionary, the
+    dereferenced value is a key/value tuple, not just the key. Otherwise,
+    iterators behave the same way as in Python.
+    </p>
+
+    <p>
+    As in Python, strings may be iterated over, but since there is no
+    <q>single-character</q> type, the resulting value is a single-byte string.
+    </p>
+
+    <h4>Functions</h4>
+
+    <p>
+    Scripts can define functions using the <code>def</code> statement.
+    Functions are also defined within the application in which the Asp engine
+    is hosted. Calling an application function is no different than calling a
+    script-defined one.
+    </p>
+
+    <p>
+    Once defined (whether via <code>def</code> or by the application),
+    functions can be assigned to a variable or list element (i.e., dispatch
+    table), or otherwise manipulated, just as in Python. For example, a script
+    is free to <q>override</q> an application-defined function by
+    reassigning its name to another function (of either type).
+    </p>
+
+    <p>
+    Functions belong to the module in which they are defined. (For a
+    description of modules, see the next section.) For script-defined
+    functions, this is the module in which the <code>def</code> statement
+    appears, even if the function has been called through a variable in a
+    different module. When code within a function accesses global variables,
+    it is accessing the global namespace of the module to which it belongs.
+    </p>
+
+    <h4>Modules</h4>
+
+    <p>
+    Both Asp and Python support the notion of modules. In Asp (as in Python),
+    a module is defined by its source file
+    (<q><span class='tt'>.asp</span></q> file). Modules can be imported via
+    the <code>import</code> and <code>from</code>&hellip;<code>import</code>
+    statements, except that the <code>*</code> is not allowed in the second
+    form. Asp defines a special system module (named <code>sys</code>) where
+    the application functions and a few special members are defined. When
+    looking up the value for a name, if the name cannot be found in the local
+    or global scope, the system module is automatically searched.
+    </p>
+
+    <h4>Types</h4>
+
+    <p>
+    Finally, there is a type that represents an object's type. A library
+    function named <code>type</code> may be used to access the type of an
+    object or expression. Types can be compared for equality and order.
+    </p>
+
+    <h3>Expressions</h3>
+
+    <p>
+    Asp uses expressions to indicate how to operate on values (operands) to
+    yield result values. This section focuses on expressions, their syntax and
+    meaning. The section that follows turns to statements, most of which
+    contain expressions in their construction.
+    </p>
+
+    <p>
+    Asp supports many operations on objects using a combination of operators
+    and built-in functions. When using operators, their relative precedence
+    must be taken into consideration. The following table lists Asp's
+    operators, in descending order of precedence. Most operators are binary
+    (i.e., taking two operands on either side of the operator). Where this is
+    not the case, italics are used to identify syntactical elements used in
+    the context of the operators.
+    </p>
+
+    <table>
+      <tr>
+        <th>Operator</th>
+        <th>Description</th>
+        <th>Associativity</th>
+      </tr>
+      <tr>
+        <td><code>( <i>expr</i> )</code></td>
+        <td>Parenthesized expression.</td>
+        <td>Left-to-right</td>
+      </tr>
+      <tr>
+        <td><code>.</code></td>
+        <td>Member selection.</td>
+        <td>Left-to-right</td>
+      </tr>
+      <tr>
+        <td>
+          <code><i>seq</i> [ <i>expr</i> ]</code><br>
+          <code><i>func</i> ( <i>args</i> )</code>
+        </td>
+        <td>Sequence indexing/slicing and function call.</td>
+        <td>Left-to-right</td>
+      </tr>
+      <tr>
+        <td><code>**</code></td>
+        <td>Exponentiation.</td>
+        <td>Right-to-left</td>
+      </tr>
+      <tr>
+        <td>
+          <code>+ <i>expr</i></code><br>
+          <code>- <i>expr</i></code><br>
+          <code>~ <i>expr</i></code>
+        </td>
+        <td>Unary positive, negative, and bitwise NOT.</td>
+        <td>Right-to-left</td>
+      </tr>
+      <tr>
+        <td>
+          <code>*</code>, <code>/</code>,
+          <code>//</code>, <code>%</code>
+        </td>
+        <td>
+        Multiplication, normal division, floor division, and modulo
+        (remainder after division).
+        </td>
+        <td>Left-to-right</td>
+      </tr>
+      <tr>
+        <td><code>+</code>, <code>-</code></td>
+        <td>Addition and subtraction.</td>
+        <td>Left-to-right</td>
+      </tr>
+      <tr>
+        <td><code>&lt;&lt;</code>, <code>&gt;&gt;</code></td>
+        <td>Left and right bit shift.</td>
+        <td>Left-to-right</td>
+      </tr>
+      <tr>
+        <td><code>&amp;</code></td>
+        <td>Bitwise AND.</td>
+        <td>Left-to-right</td>
+      </tr>
+      <tr>
+        <td><code>^</code></td>
+        <td>Bitwise exclusive OR (XOR).</td>
+        <td>Left-to-right</td>
+      </tr>
+      <tr>
+        <td><code>|</code></td>
+        <td>Bitwise OR.</td>
+        <td>Left-to-right</td>
+      </tr>
+      <tr>
+        <td>
+          <code>==</code>, <code>!=</code>,
+          <code>&lt;</code>, <code>&lt;=</code>,
+          <code>&gt;</code>, <code>&lt;=</code>,<br>
+          <code>in</code>, <code>not in</code>,
+          <code>is</code>, <code>is not</code>
+        </td>
+        <td>Comparisons, membership test, and identity test.</td>
+        <td>Left-to-right</td>
+      </tr>
+      <tr>
+        <td><code>not expr</code></td>
+        <td>Unary Boolean NOT.</td>
+        <td>Left-to-right</td>
+      </tr>
+      <tr>
+        <td><code>and</code></td>
+        <td>Boolean AND.</td>
+        <td>Left-to-right</td>
+      </tr>
+      <tr>
+        <td><code>or</code></td>
+        <td>Boolean OR.</td>
+        <td>Left-to-right</td>
+      </tr>
+      <tr>
+        <td>
+          <code><i>start</i> .. <i>end</i></code><br>
+          <code><i>start</i> .. <i>end</i> : <i>step</i></code>
+        </td>
+        <td>Range with optional step.</td>
+        <td>N/A</td>
+      </tr>
+      <tr>
+        <td>
+          <code><i>trueval</i> if <i>cond</i> else <i>falseval</i></code>
+        </td>
+        <td>Conditional expression.</td>
+        <td>Left-to-right</td>
+      </tr>
+    </table>
+
+    <p>
+    Commas (<code>,</code>) used to separate items within a collection
+    constant, and colons (<code>:</code>) used to separate key from value in
+    dictionary entries, are not considered operators, but are syntactically
+    of lower precedence than the operators listed in the above table.
+    Assignment (<code>=</code>, <code>+=</code>, <code>=</code>, etc.) and
+    insertion (<code>&lt;-</code>) are also special, operating at the lowest
+    precedence within an assignment statement.
+    </p>
+
+    <p>
+    Some operations rely on the comparison between objects. For example, as
+    mentioned previously, the entries within sets and dictionaries rely on an
+    ordering of all objects. The first thing to consider for this sort order
+    is the type of the objects being compared. The following table lists the
+    types in their order, from least to greatest.
+    </p>
+
+    <ol>
+      <li>None</li>
+      <li>Ellipsis</li>
+      <li>Boolean</li>
+      <li>Integer</li>
+      <li>Floating-point</li>
+      <li>Range</li>
+      <li>String</li>
+      <li>Tuple</li>
+      <li>List</li>
+      <li>Set</li>
+      <li>Dictionary</li>
+      <li>Iterator</li>
+      <li>Function</li>
+      <li>Module</li>
+      <li>Type</li>
+    </ol>
+
+    <p>
+    Within each type, the sort order depends on the type at hand. For
+    Booleans, <code>False</code> comes before <code>True</code>. Integers and
+    floating-point values are treated by their numeric order. For ranges, the
+    start value is compared first, then the end value, and finally the step
+    value. Strings are compared lexicographically, character by character. The
+    individual elements of sequences (tuples and lists) are compared in order
+    from first to last. Sets and dictionaries are also compared
+    lexicographically by key first, then for dictionaries, value. For all
+    collections, comparison is defined recursively when the collections
+    contain other collections. The sort order of iterators, functions,
+    and modules is somewhat obscure, but is guaranteed to be well-defined.
+    And, of course, for type objects, the order of the types listed above
+    applies.
+    </p>
+
+    <p>
+    Each type of expression is covered in detail in the sections that follow.
+    </p>
+
+    <h4>Arithmetic expressions</h4>
+
+    <p>
+    As expected, Asp supports the same assortment of arithmetic operators that
+    Python does. However, there are some notable differences in some result
+    types.
+    </p>
+
+    <p>
+    The arithmetic operators typically operate on numeric operands. There are
+    some exceptions, however, which are covered below. The numeric types
+    include integers and floating-point values, but also include Boolean
+    values. When treated as numeric values, Boolean values are converted in
+    the obvious way: <code>False</code> becomes <code>0</code> and
+    <code>True</code> becomes <code>1</code>.
+    </p>
+
+    <p>
+    The unary <code>+</code> and <code>–</code> operators perform the obvious
+    operations. If the operand is either Boolean or integer, the result is an
+    integer. For a floating-point operand, the result is floating-point.
+    </p>
+
+    <p>
+    The binary arithmetic operators are: <code>+</code> (addition),
+    <code>-</code>(subtraction), <code>*</code> (multiplication),
+    <code>/</code> (normal division), <code>//</code> (floor division),
+    <code>%</code> (modulo), and <code>**</code> (exponentiation). In most
+    cases, the result is as you would expect from Python 3. For example,
+    dividing two integers (with normal division) results in a floating-point
+    result. There is one notable exception though. Exponentiation between two
+    integers always results in a floating-point value.
+    </p>
+
+    <p>
+    In addition to operations on numeric operands, two other operations are
+    supported which may be familiar to Python programmers: sequence
+    concatenation and sequence repetition.
+    </p>
+
+    <p>
+    Two sequences of the same type may be concatenated using the
+    <code>+</code> operator. For example, consider the following statements.
+    </p>
+
+    <blockquote><pre>
+l1 = [1, 2, 3]
+l2 = [4, 5]
+lr = l1 + l2</pre>
+    </blockquote>
+
+    <p>
+    The resulting list, <code>lr</code>, is assigned the value
+    <code>[1, 2, 3, 4, 5]</code>, the concatenation of the two operands.
+    Tuples can be concatenated in the same way. Concatenation also works with
+    strings so that adding, for example, <code>'abc'</code> and
+    <code>'def'</code>, results in the string <code>'abcdef'</code>.
+    </p>
+
+    <p>
+    Sequence repetition uses the <code>*</code> operator to repeat a sequence
+    a specified number of times. One of the operands is a sequence and the
+    other operand must be an integer (or Boolean). Either order is acceptable,
+    and the result is the same. Again, sequence repetition is supported for
+    all sequence types: string, tuple, and list. Here is an example of string
+    repetition at work.
+    </p>
+
+    <blockquote><pre>
+sr = 'ha' * 3</pre>
+    </blockquote>
+
+    <p>
+    The result, <code>sr</code>, is <code>'hahaha'</code>.
+    </p>
+
+    <p>
+    When the <code>%</code> operator is used with a string as the left operand
+    and a tuple as the right operand, string formatting is performed like
+    old-style Python <code>printf</code> formatting. Unlike with Python, the
+    right-hand operand must be a tuple, even if only one item is being
+    formatted. Since Asp strings consist of only single-byte (ASCII)
+    characters, the <code>a</code> conversion type is equivalent to the
+    <code>r</code> type, both performing conversion as if the
+    <code>repr</code> library function was called.
+    </p>
+
+    <h4>Bitwise operations</h4>
+
+    <p>
+    Asp directly supports bitwise operations on integer values (including
+    Booleans converted to integer). Unary <code>~</code> (not) is supported,
+    as well as the binary operators <code>&amp;</code> (and), <code>|</code>
+    (or), <code>^</code> (exclusive or), <code>&lt;&lt;</code> (left shift),
+    and <code>&gt;&gt;</code> (right shift). Shifting right performs sign
+    extension. In all other bitwise operations, values are treated as if they
+    are unsigned.
+    </p>
+
+    <p>
+    Note that because Asp restricts integers to be 32 bits in width, shifting
+    left can result in loss of data and/or a change of sign. This is different
+    than Python, which supports arbitrary precision integers.
+    </p>
+
+    <p>
+    The following example clears a bit within an integer bit mask.
+    </p>
+
+    <blockquote><pre>
+bits = 0xFFFF
+n = 3
+result = bits &amp; ~(1 &lt;&lt; n)</pre>
+    </blockquote>
+
+    <p>
+    The value in result is <code>65527</code>, or in hexadecimal,
+    <code>0xFFF7</code>.
+    </p>
+
+    <h4>Comparisons</h4>
+
+    <p>
+    Comparison operators are as expected: <code>==</code> (equal),
+    <code>!=</code> (not equal), <code>&lt;</code> (less), <code>&lt;=</code>
+    (less or equal), <code>&gt;</code> (greater), and <code>&gt;=</code>
+    (greater or equal). They work nearly the same as they do in Python,
+    yielding a Boolean result.
+    </p>
+
+    <p>
+    A couple of words of caution are appropriate here. Asp does not support
+    Python's <q>chained</q> comparison expressions, e.g.,
+    <code>a &lt; b &lt; c</code>. In Python, this expression really means
+    <code>a &lt; b and b &lt; c</code>. If the former expression is used in
+    Asp, the left associativity of the <code>&lt;</code> operator would ensure
+    that <code>a &lt; b</code> is evaluated first and would yield a Boolean
+    value which would then be compared with <code>c</code>. This is likely not
+    what was intended, so the latter expression is preferred in Asp.
+    </p>
+
+    <p>
+    Also, in Python, the relational operators (<code>&lt;</code>,
+    <code>&lt;=</code>, <code>&gt;</code>, and <code>&gt;=</code>) are
+    overloaded for sets to mean subset/superset testing. This is not so in
+    Asp; like dictionaries, the relational operators are not defined for sets.
+    If set operations like subset test, set difference, set intersection, etc.
+    are desired, functions can be written to provide this functionality.
+    </p>
+
+    <h4>Logical operations</h4>
+
+    <p>
+    Logical operations include the unary <code>not</code>, and the binary
+    <code>and</code> and <code>or</code> operators. As with Python,
+    short-circuit logic is used, so for the binary operations, the first
+    operand is interpreted as a Boolean, and the expression returns either the
+    original value of the first operand or the value of the second operand.
+    </p>
+
+    <p>
+    Every object can be interpreted as a Boolean value. <code>None</code> and
+    <code>...</code> are <code>False</code> and <code>True</code>,
+    respectively. Numeric values are interpreted as <code>False</code> if
+    zero, and <code>True</code> otherwise. The following objects are
+    interpreted as <code>False</code>: a null range, an empty string, tuple,
+    list, set, or dictionary, and an iterator at its end. A type object is
+    <code>False</code> if its value is the <code>None</code> type. All other
+    values are interpreted as <code>True</code>. Here is an example using
+    non-Boolean values with the logical operators.
+    </p>
+
+    <blockquote><pre>
+a = 3; b = 5
+r1 = not a
+r2 = a and b
+r3 = a or b</pre>
+    </blockquote>
+
+    <p>
+    The values of <code>r1</code>, <code>r2</code>, and <code>r3</code> are
+    <code>False</code>, <code>5</code>, and <code>3</code>, respectively. If
+    it is more desirable to force the results to Boolean, one way to do so is
+    to use two <code>not</code> operators, as in this example.
+    </p>
+
+    <blockquote><pre>
+a = 1; b = 0
+r4 = not not a and not not b
+r5 = not not a or not not b</pre>
+    </blockquote>
+
+    <p>
+    Because one of the values is interpreted as <code>False</code>, the
+    results for <code>r4</code> and <code>r5</code> are <code>False</code> and
+    <code>True</code>, respectively.
+    </p>
+
+    <p>
+    The conditional expression also uses short-circuit logic. Consider the
+    following example.
+    </p>
+
+    <blockquote><pre>
+x = a if t else b</pre>
+    </blockquote>
+
+    <p>
+    Here, <code>x</code> takes on the value of <code>a</code> if the
+    expression <code>t</code> is interpreted as <code>True</code>, and the
+    value of <code>b</code> otherwise.
+    </p>
+
+    <p>
+    Note that in all these cases of short-circuit logic, unused expressions
+    are not evaluated. This becomes important when the expression has side
+    effects, for example, a function call. Consider these examples.
+    </p>
+
+    <blockquote><pre>
+True or foo()
+False and foo()
+foo() if False else bar()   # bar is called</pre>
+    </blockquote>
+
+    <p>
+    In all these cases, the function <code>foo</code> is never called. Note
+    also that the binary <code>and</code> and <code>or</code> operators are
+    left associative. Expressions are evaluated only as necessary to determine
+    the final result. As a final example, we mix things up and use other types.
+    </p>
+
+    <blockquote><pre>
+a = 7.2; b = ''; c = False;
+r6 = a and b and c
+r7 = a or b or c</pre>
+    </blockquote>
+
+    <p>
+    Here, the evaluation of <code>r6</code> ends when <code>b</code> is
+    interpreted as <code>False</code>, giving <code>r6</code> a value of
+    <code>''</code>, while the evaluation of <code>r7</code> ends when
+    <code>a</code> is interpreted as <code>True</code>, yielding a value of
+    <code>7.2</code> for <code>r7</code>. Of course, <code>and</code> and
+    <code>or</code> may be used in the same logical expression, with
+    <code>and</code> having the higher precedence.
+    </p>
+
+    <h4>Membership tests</h4>
+
+    <p>
+    The <code>in</code> and <code>not in</code> operators test for membership
+    of an object within a collection. Like Python's operators of the same
+    names, they return Boolean results indicating whether the left operand
+    occurs in the second operand. When strings are used, substring search is
+    performed as in Python.
+    </p>
+
+    <h4>Identity tests</h4>
+
+    <p>
+    As in Python, the <code>is</code> operator tests if two objects are the
+    same object. This is not the same as a test for equality. Two objects,
+    assigned to <code>a</code> and <code>b</code>, with the exact same value
+    are not the same object, and therefore the expression <code>a is b</code>
+    will yield <code>False</code>. The opposite test is performed with the
+    <code>is not</code> operator.
+    </p>
+
+    <h4>Indexing</h4>
+
+    <p>
+    All sequences may be indexed using syntax that resembles array indexing in
+    other languages. The index values of elements in a sequence start at zero.
+    For tuples and lists, a valid index value yields the selected element. In
+    the case of strings, since Asp (as with Python) does not support a
+    single-character type, an indexing expression simply yields a
+    single-character string. Consider these simple examples.
+    </p>
+
+    <blockquote><pre>
+tup = ('abc', 'lmno', 'xyz')
+lst = [10, 20, 30]
+r1 = tup[1]
+r2 = lst[2]
+r3 = tup[0][1]</pre>
+    </blockquote>
+
+    <p>
+    The values of <code>r1</code>, <code>r2</code>, and <code>r3</code> are
+    <code>'lmno'</code>, <code>30</code>, and <code>'b'</code>, respectively.
+    </p>
+
+    <p>
+    For convenience, negative indexes are supported, and operate from the end
+    of a sequence, just like in Python. Therefore, an index of <code>-1</code>
+    identifies the last element, <code>-2</code> the second to last, etc.
+    </p>
+
+    <p>
+    Dictionaries may also be indexed, but in this case, the index value is a
+    key, and the resulting value is the value associated with the key. Sets do
+    not support indexing. To test whether a key exists in a set or a
+    dictionary, the <code>in</code> operator (or <code>not in</code>) should
+    be used.
+    </p>
+
+    <p>
+    It should be noted that the indexing syntax can be used on the left side
+    of an assignment when the object being indexed is a list. This is
+    discussed further in the section on assignment.
+    </p>
+
+    <h4>Slicing</h4>
+
+    <p>
+    Asp supports using a range as the index in the indexing syntax, indicating
+    a slicing operation. This is much like Python slicing, except the syntax
+    is slightly different. Slicing applies only to sequences (including
+    strings), and the result of a slicing operation is a subset of the
+    sequence being sliced. Here is an example using lists.
+    </p>
+
+    <blockquote><pre>
+lst = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+sl1 = lst[3..5]
+sl2 = lst[-3..-5:-1]</pre>
+    </blockquote>
+
+    <p>
+    The value <code>sl1</code> is <code>[3, 4]</code> and <code>sl2</code> is
+    <code>[7, 6]</code>. Notice that ranges with a negative step result in
+    elements being arranged in reverse order from the original sequence.
+    </p>
+
+    <p>
+    As mentioned, string slicing is also supported, as in the following example.
+    </p>
+
+    <blockquote><pre>
+s = 'abcdefg'
+ss = s[2..:2]</pre>
+    </blockquote>
+
+    <p>
+    The resulting slice, <code>ss</code>, is assigned the value
+    <code>'ceg'</code>.
+    </p>
+
+    <p>
+    Like simple indexing, a list slicing operation may appear on the left side
+    of an assignment. More discussion may be found in the section on
+    assignment.
+    </p>
+
+    <h4>Member selection</h4>
+
+    <p>
+    To access a variable in another module, the <code>.</code> operator is
+    used. A simple example should suffice to illustrate its usage.
+    </p>
+
+    <blockquote><pre>
+print(mod.x)</pre>
+    </blockquote>
+
+    <p>
+    Here we assume the presence of a <code>print</code> function (which the
+    standalone application includes). The module must have been previously
+    imported. A subsequence section on modules explains importing.
+    </p>
+
+    <p>
+    Member selection may also appear as the target of an assignment. See the
+    section on assignment for more details.
+    </p>
+
+    <h4>Function call</h4>
+
+    <p>
+    Functions, whether defined in a script or in the application, may be
+    called using function call syntax. In its simplest form, it consists of
+    the name of a function (in fact, a variable referring to the function)
+    followed by a list of arguments in parentheses.
+    </p>
+
+    <blockquote><pre>
+foo(1, 2.4, 'abc')</pre>
+    </blockquote>
+
+    <p>
+    Functions can return one or more values. The above example ignores any
+    returned values. To get at the returned value(s), the function call can be
+    used in a larger expression, or, for example, in an assignment.
+    </p>
+
+    <p>
+    Asp supports the notion of named arguments for assigning values to
+    specific parameters listed in the function definition. For example, the
+    following call uses named arguments.
+    </p>
+
+    <blockquote><pre>
+move_to(x=10, y=20)</pre>
+    </blockquote>
+
+    <p>
+    As in Python, a group of arguments in a tuple may be expanded and passed
+    as separate arguments to a function. This feature is related to the
+    support for variable argument lists, which is described in the section on
+    the function definition statement.
+    </p>
+
+    <blockquote><pre>
+print(10, *args)</pre>
+    </blockquote>
+
+    <p>
+    Here, the number of arguments passed to the print function is the number
+    of elements in the <code>args</code> tuple, plus <code>1</code> for the
+    first argument.
+    </p>
+
+    <h3>Statements</h3>
+
+    <p>
+    This section discusses the various statements that Asp supports. One of
+    the simplest statements consists of an expression on a line by itself,
+    although this type of statement does not perform anything useful unless
+    it is a function call.
+    </p>
+
+    <p>
+    Variables are manipulated using assignment and deletion statements and are
+    much the same as they are in Python. Asp introduces a generic insertion
+    statement for inserting items into collections.
+    </p>
+
+    <p>
+    Asp supports the simple control structures: conditionals
+    (<code>if<code>&hellip;</code>elif</code>&hellip;<code>else</code>), loops
+    (<code>while</code> and <code>for</code>), and function definitions
+    (<code>def</code>), each of which are described below, along with other
+    types of statements.
+    </p>
+
+    <h4>Assignment</h4>
+
+    <p>
+    A simple assignment uses the equal sign (<code>=</code>) with a variable
+    on the left and an expression on the right.
+    </p>
+
+    <blockquote><pre>
+x = y + z</pre>
+    </blockquote>
+
+    <p>
+    As in Python, chained assignment is supported, so multiple variables can
+    be assigned the same value in a single statement.
+    </p>
+
+    <blockquote><pre>
+i = j = k = 0</pre>
+    </blockquote>
+
+    <p>
+    A variable sequence expression can appear on the left side, supporting
+    sequence assignment as in Python. The sequence is usually a tuple but may
+    also be a list. As long as the structure of the sequences are compatible,
+    the individual variables are assigned corresponding values from the
+    right-hand expression. A slightly complex example is appropriate here.
+    </p>
+
+    <blockquote><pre>
+a, (b, c), d = x, y, z = t</pre>
+    </blockquote>
+
+    <p>
+    Notice that variable sequence assignment also supports chained assignment.
+    In the above example, it is assumed that <code>y</code> will be a sequence
+    (tuple or list) compatible with <code>(b,&nbsp;c)</code>, where either
+    element may be of any type (including sequences), and <code>t</code> must
+    be compatible with the structure of the left-hand variable expression.
+    Sequence assignment can also be used to swap values without the use of a
+    temporary variable, as in the following example .
+    </p>
+
+    <blockquote><pre>
+a, b = b, a</pre>
+    </blockquote>
+
+    <p>
+    Assignment to a list element or dictionary entry value is possible using
+    an indexing expression on the left-hand side.
+    </p>
+
+    <blockquote><pre>
+a[i] = 6</pre>
+    </blockquote>
+
+    <p>
+    If <code>a</code> is a list, the value <code>6</code> is assigned to the
+    <code>i</code>'th element of <code>a</code>. If it is a dictionary,
+    <code>i</code> is a key and an entry is either added or replaced in the
+    dictionary.
+    </p>
+
+    <p>
+    An indexing expression on the left side of an assignment may also use a
+    range to support slice assignment. Care should be taken to ensure that the
+    number of values on the right side is the same as the number of elements
+    in the slice.
+    </p>
+
+    <p>
+    Finally, it is possible to assign a variable in a different module by
+    using member selection syntax on the left side.
+    </p>
+
+    <blockquote><pre>
+module_b.debug = True</pre>
+    </blockquote>
+
+    <p>
+    As in Python, Asp supports a wide variety of augmented assignments. The
+    quintessential way to increment a variable uses the augmented
+    <code>+=</code> operator.
+    </p>
+
+    <blockquote><pre>
+i += 1</pre>
+    </blockquote>
+
+    <p>
+    The above statement is equivalent to
+    <code>i&nbsp;=&nbsp;i&nbsp;+&nbsp;1</code> but is more concise.
+    </p>
+
+    <h4>Insertion</h4>
+
+    <p>
+    Asp introduces syntax for inserting items into collections. Python does
+    not have equivalent syntax, but rather uses an insert function. There are
+    key differences between the two which are highlighted below.
+    </p>
+
+    <p>
+    Asp uses the <code>&lt;-</code> operator to insert items into a
+    collection. The collection, whether it is a list, set, or dictionary,
+    appears on the left-hand side of the operator. (Since tuples and strings
+    are immutable, they cannot be used in an insertion statement.)
+    </p>
+
+    <p>
+    The syntax of the right-hand side may be a simple expression, or a
+    colon-separated pair of values, where the first value is either an index
+    or a key, and the second value is the value to be inserted. Let us examine
+    insertions into each type of collection.
+    </p>
+
+    <p>
+    The following example illustrates how to insert an item into a list.
+    </p>
+
+    <blockquote><pre>
+lst = ['a', 'b', 'c', 'd', 'e']
+lst &lt;- 3 : 'abc'</pre>
+    </blockquote>
+
+    <p>
+    The value <code>'abc'</code> is inserted into the list <code>lst</code> as
+    element 3. (Recalling that indices are zero-based, that would be the
+    fourth element.) The index may be any expression that results in an
+    integer but must be valid for the list. So, for example, inserting into a
+    5-element list, the index can be any integer in the range &minus;6 to 5. A
+    value of 5 would append the item to the end of the list and a 0 index
+    would insert at the beginning. Negative indices access the list from the
+    end, so an index value of &minus;1 would also append the item to the list
+    and &minus;6 would insert it before the first element. Note that this is
+    different than the treatment of negative index values passed to the Python
+    <code>list</code>'s <code>insert</code> method.
+    </p>
+
+    <p>
+    To simply append an item to the end of a list, the simpler syntax will
+    suffice.
+    </p>
+
+    <blockquote><pre>
+lst &lt;- 'abc'</pre>
+    </blockquote>
+
+    <p>
+    Here, <code>'abc'</code> is appended to the end of <code>lst</code>.
+    </p>
+
+    <p>
+    Sets hold only keys, so the insertion statement for a set should only use
+    the simple syntax, where the value is the key to be inserted.
+    </p>
+
+    <blockquote><pre>
+s &lt;- 'abc'</pre>
+    </blockquote>
+
+    <p>
+    This is a good point to mention that, like assignment, chained insertion
+    is also supported (with either syntax). So multiple items can be inserted
+    in a single statement.
+    </p>
+
+    <blockquote><pre>
+s &lt;- 1 &lt;- 3 &lt;- 5
+lst &lt;- 0 : 'aaa' &lt;- 'zzz'</pre>
+    </blockquote>
+
+    <p>
+    Notice that simple items and key/value pairs may be used interchangeably
+    in a chained insertion. The insertions occur in order from left to right.
+    </p>
+
+    <p>
+    Finally, insertion into a dictionary requires the key/value pair syntax
+    since every entry in a dictionary must be identified by a key.
+    </p>
+
+    <blockquote><pre>
+d = {}
+d &lt;- 1 : 'aaa' &lt;- None : 'zzz' &lt;- 'xyzzy' : 42</pre>
+    </blockquote>
+
+    <p>
+    For dictionaries, if the key already exists, its associated value is
+    replaced. Again, since insertion happens from left to right, any duplicate
+    keys in a single statement will result in the final value for a given key
+    being stored.
+    </p>
+
+    <h4>Deletion</h4>
+
+    <p>
+    As in Python, the <code>del</code> statement is used to delete a variable
+    (whether in the current module or one specified by the member selection
+    syntax) or an item from a list, set, or dictionary. Deleting a slice of
+    elements from a list is also supported.
+    </p>
+
+    <h4>Pass</h4>
+
+    <p>
+    The following sections discuss control structures, those statements that
+    control the flow of execution within a script. These statements require
+    the presence of one more target statement to be controlled (e.g., the body
+    of an <code>if</code> statement). Sometimes, it is desirable to perform no
+    action in these controlled statements (e.g., when the test expression
+    performs all the necessary operations, or the test expression changes
+    value via some external stimulus). In these cases, there is the
+    <code>pass</code> statement. Like in Python, <code>pass</code> is the null
+    operation. It performs no action other than to be a placeholder when a
+    statement is required by the surrounding syntax, but no action is
+    required.
+    </p>
+
+    <h4>Conditional statement</h4>
+
+    <p>
+    The conditional statement, <code>if</code>, is just like its counterpart
+    in Python. After the main body, one or more <code>elif</code> parts may be
+    added, and an optional <code>else</code> may follow at the end. At most,
+    only one of the controlled bodies of code will be executed. If no
+    <code>else</code> part exists, it is possible that none of the bodies are
+    executed. As in Python, the test expressions are interpreted as Boolean
+    values to decide on the path of execution.
+    </p>
+
+    <h4>Simple loops</h4>
+
+    <p>
+    Asp supports the full syntax of the Python <code>while</code> statement,
+    including the optional <code>else</code> clause, which is executed only if
+    no loop iterations were performed. The test expression is interpreted as a
+    Boolean value for purposes of controlling the flow of execution.
+    </p>
+
+    <h4>Iterating loops</h4>
+
+    <p>
+    Asp provides support for the <code>for</code> statement, including the
+    optional <code>else</code> clause as with the <code>while</code>
+    statement. The <code>for</code> statement uses an iterator to iterate over
+    the specified collection, assigning each item in the collection to the
+    target variable(s).
+    </p>
+
+    <p>
+    When the collection is a dictionary, both the key and value are assigned
+    to the control variable(s) as a tuple.
+    </p>
+
+    <blockquote><pre>
+d = {1: 'a', 2: 'b', 3: 'c'}
+for k, v in d:
+    print(k, v)</pre>
+    </blockquote>
+
+    <p>
+    In the above example, sequence assignment is used to assign the key and
+    value of each dictionary entry to separate variables. If only one variable
+    was used, it would hold a tuple of the key and value.
+    </p>
+
+    <h4>Loop control</h4>
+
+    <p>
+    Sometimes it is desirable to circumvent the default flow of control within
+    a loop structure. The <code>break</code> and <code>continue</code>
+    statements do just that, as they also do in Python. The <code>break</code>
+    statement exits the loop in which it is specified, while the
+    <code>continue</code> statement leaves the body and checks the test
+    expression before deciding whether to execute the body again. Both are
+    usually the target of an <code>if</code> statement.
+    </p>
+
+    <h4>Function definition</h4>
+
+    <p>
+    Functions may be defined in a script using the <code>def</code> statement.
+    Recall that functions are also defined in the host application, but their
+    definition is performed externally, and therefore not discussed here,
+    other than to state that their definitions appear in the <code>sys</code>
+    module, and like all other variables, may be replaced if desired.
+    </p>
+
+    <p>
+    As with Python, Asp supports default function parameter values. And, also
+    as with Python, care should be taken with mutable parameter values (e.g.,
+    lists and dictionaries), especially when they are used as defaults. The
+    behaviour in such cases is the same between Asp and Python. Consider the
+    following example.
+    </p>
+
+    <blockquote><pre>
+def foo(x = []):
+    x &lt;- 0
+    return x
+foo(); foo()
+print(len(foo()))</pre>
+    </blockquote>
+
+    <p>
+    The default value for <code>x</code> is an empty list, which is mutable.
+    The function modifies the list by appending an element, so after the first
+    call, the default value is no longer an empty list. In this example, the
+    script will print out <code>3</code> (not <code>1</code> as may be
+    expected). As with Python, a better approach would be to use a non-mutable
+    default parameter instead.
+    </p>
+
+    <blockquote><pre>
+def foo(x = None):
+    if x is None:
+        x = []
+    x &lt;- 0
+    return x
+foo(); foo()
+print(len(foo()))</pre>
+    </blockquote>
+
+    <p>
+    Now the script prints out <code>1</code> since a new empty list is created
+    every time the <code>x</code> parameter is left to its default value.
+    </p>
+
+    <p>
+    Asp functions support variable argument lists of the positional variety
+    (<code>*args</code>), but not keyword variable argument lists
+    (<code>**kwargs</code>). If supported by the function, extra arguments in
+    a function call are gathered into a tuple and passed into the function as
+    the variable argument list parameter.
+    </p>
+
+    <p>
+    Functions can return one or more values to the caller via the
+    <code>return</code> statement. If a function exits by simply executing the
+    last statement in its body, or by executing a simple <code>return</code>
+    statement with no values, the default behaviour of returning
+    <code>None</code> is invoked. When multiple values are returned, the
+    caller receives them in a tuple.
+    </p>
+
+    <h4>Scope control</h4>
+
+    <p>
+    Variable access in Asp depends on the lexical scope where the access
+    occurs (i.e., in a function or at the global scope of the module). Each
+    called function defines its own scope so that newly defined variables are
+    created locally by default and destroyed upon exit from the function. Each
+    module has its own scope where variables are maintained. Accessing the
+    value of a variable from within a function first checks the local function
+    call scope, and if the variable is not found there, the module's scope is
+    checked. Finally, if the variable is not defined in either the function or
+    its module, the <code>sys</code> module is checked. This is how it is
+    possible to call application-defined functions or access
+    application-defined variables without the need to use member selection.
+    </p>
+
+    <p>
+    Within a function, global variables (i.e., variables in the scope of the
+    module in which the function is defined) can be accessed by using the
+    <code>global</code> statement prior to the accessing statement. Unlike
+    Python, a <code>global</code> statement is dynamic (not a lexical hint to
+    the pre-compiler). In other words, a variable name can be assigned and
+    used locally, and then overridden by using a <code>global</code> statement
+    which changes the meaning of the variable name to refer to the module's
+    global scope. To switch back to using the function's local variable, Asp
+    has a <code>local</code> statement which removes the global override.
+    </p>
+
+    <blockquote><pre>
+def foo():
+    x = 1 # local
+    global x
+    x = 2 # x now refers to global scope;
+    local x
+    print(x) # prints 1</pre>
+    </blockquote>
+
+    <p>
+    In this example, the assignment to <code>x</code> after the
+    <code>global</code> statement occurs in the module's global scope. If
+    <code>x</code> is undefined in the global scope, it is created (as if the
+    assignment took place at the global scope). Otherwise, it's value is
+    replaced with the new value.
+    </p>
+
+    <p>
+    Parameters are considered local variables but, it should be noted, are
+    also subject to the <code>global</code> and <code>local</code> statements.
+    Also, as with Python's <code>global</code> statement, multiple variables
+    may be given in a single <code>global</code> or <code>local</code>
+    statement, separated by commas.
+    </p>
+
+    <h4>Assertion</h4>
+
+    <p>
+    Asp supports an <code>assert</code> statement that aborts the script
+    execution if the given expression evaluates as <code>False</code>. Python's
+    <code>assert</code> statement includes an optional second expression which
+    is used to construct the <code>AssertionError</code> object that is raised
+    as an exception. Because Asp does not support exceptions, Asp does not
+    support this second expression in its syntax.
+    </p>
+
+    <blockquote><pre>
+assert i &lt; size</pre>
+    </blockquote>
+
+    <p>
+    The above statement will cause the script to abort if the value of
+    <code>i</code> is greater than or equal to <code>size</code>. As with
+    other control statements, the expression need not be Boolean. Non-Boolean
+    expressions are converted to Boolean as covered in previous sections.
+    </p>
+
+    <p>
+    It should also be noted that while Python's <code>assert</code> statements
+    can be disabled for performance reasons (using an option to the Python
+    interpreter), Asp's <code>assert</code> statements are always performed.
+    </p>
+
+    <h3>Modules revisited</h3>
+
+    <p>
+    Asp supports the writing of scripts in multiple modules, each defined in
+    its own <q><span class='tt'>.asp</span></q> file. The <code>import</code>
+    and <code>from</code>&hellip;<code>import</code> statements (both referred
+    to generically as <code>import</code> statements in what follows) operate
+    much like their Python counterparts. The code of each module is executed
+    upon the first execution of an <code>import</code> statement for the
+    module. After the module has been executed once, subsequent imports of a
+    module simply create the appropriate variables (referring to either the
+    module itself or variables within the module), just as in Python.
+    </p>
+
+    <p>
+    When compiling a script, <code>import</code> statements trigger the
+    compiler to process the specified module(s). The compiler uses a search
+    path to locate the source file for each imported module. If left
+    undefined, the default behaviour is to search only the current working
+    directory. To define a search path, assign a list of directories to the
+    <code>ASP_INCLUDE</code> environment variable, separated as appropriate
+    for the operating system (e.g., colons in Linux, semicolons for Windows).
+    When using <code>ASP_INCLUDE</code>, the current working directory is not
+    searched by default. A blank entry somewhere in the search path will
+    restore searching of the current working directory. For example, consider
+    the following search path, specified for a Linux system.
+    </p>
+
+    <blockquote><pre>
+/usr/local/lib/asp:/usr/lib/asp::~/asp</pre>
+    </blockquote>
+
+    <p>
+    The compiler will search for modules in the
+    <span class='tt'>/usr/local/lib/asp</span> and
+    <span class='tt'>/usr/lib/asp</span> directories, the current working
+    directory, and the <span class='tt'>asp</span> directory in the user's
+    home directory, in that order.
+    </p>
+
+    <p>
+    When working with multi-module scripts, it should be noted that the
+    compiler generates a single executable, not multiple executable files.
+    </p>
+
+    <h2>The system module</h2>
+
+    <p>
+    As mentioned in the section on scope control, the system module,
+    <code>sys</code>, is searched when accessing a variable name. This is
+    convenient because all the application-defined functions and variables are
+    defined there.
+    </p>
+
+    <p>
+    The developer of a system has complete control over the application
+    functions and variables that are made available to the script writer.
+    However, there are several extremely useful functions that are provided by
+    the Asp system by default. Developers are encouraged to include at least
+    the type-oriented functions, and to at least consider inclusion of the
+    other ones mentioned in the following sections.
+    </p>
+
+    <p>
+    Note that it is possible (but not recommended) for a script to redefine
+    and even delete application definitions that appear in the
+    <code>sys</code> module. However, such actions only affect the currently
+    running script. All the application definitions are reinstated the next
+    time a script is run.
+    </p>
+
+    <h3>Built-in functions</h3>
+
+    <p>
+    As mentioned above, it is completely up to the application developer to
+    make the functions listed here available to the script writer. As a script
+    writer, you need to refer to the applicable documentation to determine
+    which functions are available and how to use them.
+    </p>
+
+    <h4>Type support functions</h4>
+
+    <p>
+    Sometimes it is useful to access the type of an object. Asp supports a
+    type that indicates an object's type, but there is no language syntax that
+    expresses it. Instead, a function called <code>type</code> is provided.
+    The returned value is a type value which can be compared with other type
+    values for equality and order.
+    </p>
+
+    <p>
+    The <code>len</code> function returns the length of a given object.
+    Depending on the type of the object, that means different things. For a
+    tuple or list, it's the number of elements. For a set or dictionary, it's
+    the number of members. For a string, the number of characters in the
+    string is returned. If the type of the object is none of these, the
+    <code>len</code> function returns <code>1</code>.
+    </p>
+
+    <h4>Type conversion functions</h4>
+
+    <p>
+    Asp supports conversion of objects to various types by means of the simple
+    type conversion functions <code>bool</code>, <code>int</code>,
+    <code>float</code>, <code>str</code>, and <code>repr</code>. Collection
+    conversion functions <code>tuple</code> and <code>list</code> are also
+    available. Each accepts a single argument to be converted. With the
+    exception of <code>repr</code>, the functions can also be called with no
+    arguments, in which case a default value of the applicable type is
+    returned.
+    </p>
+
+    <p>
+    The <code>bool</code> function returns <code>True</code> or
+    <code>False</code> based on the Boolean interpretation of the given
+    object. This is the same interpretation that the <code>if</code> and
+    <code>while</code> statements use on their test expressions as well as the
+    initial operands of the <code>and</code> and <code>or</code> operators.
+    </p>
+
+    <p>
+    The <code>int</code> and <code>float</code> functions work with numeric
+    objects (Boolean, integer, and floating-point) and with strings.
+    Conversion from floating-point to integer results in truncation.
+    Conversion from Boolean yields <code>0</code> or <code>1</code> for
+    conversion to integer, or in the case of conversion to floating-point,
+    <code>0.0</code> or <code>1.0</code>. When converting from a string, the
+    content of the string is parsed and, if valid, yields an appropriate
+    numeric value. An invalid number string will cause an error, ending the
+    execution of the script, so care must be taken to avoid this condition.
+    </p>
+
+    <p>
+    The <code>int</code> function accepts a second argument,
+    <code>base</code>, which can only be used when the first argument is a
+    string. Like the equivalent Python function, it specifies the numeric base
+    to be used for the conversion. Valid values for base are <code>0</code>
+    and <code>2</code> through <code>36</code>. The default is
+    <code>10</code>. A base of <code>0</code> causes the base to be determined
+    from an optional prefix in the string according to the C language
+    interpretation (e.g., <code>'0x10'</code> is converted to
+    <code>16</code>).
+    </p>
+
+    <p>
+    The <code>str</code> function converts its argument to a string
+    representation. This can be useful for building strings that contain
+    object values. The <code>repr</code> function converts its argument to a
+    canonical string representation, so if, for example, a string containing
+    special characters is given, they will be converted to printable escape
+    sequences.
+    </p>
+
+    <p>
+    The <code>tuple</code> and <code>list</code> functions convert a range,
+    tuple, list, set, or dictionary object into the appropriate type. Unlike
+    Python, when converting a dictionary, both keys and values are combined
+    into tuples and then inserted into the resulting collection. If a tuple is
+    passed into the <code>tuple</code> function, the same object is returned
+    (i.e., it is not copied). This behaviour is identical to that of Python.
+    </p>
+
+    <h4>Iterator functions</h4>
+
+    <p>
+    Use of iterators in scripts is usually done implicitly using the
+    <code>for</code> statement. However, direct access to iterators is also
+    available through two built-in functions: <code>iter</code> and
+    <code>next</code>.
+    </p>
+
+    <p>
+    The <code>iter</code> function creates an iterator. It accepts a single
+    argument which is the collection to which the iterator will refer. A range
+    may also be used.
+    </p>
+
+    <p>
+    The <code>next</code> function returns the next item in the collection (or
+    range), advancing the iterator to refer to following item. Successive
+    calls to <code>next</code> return subsequent items in the iteration. The
+    <code>next</code> function can be called with one or two arguments. The
+    first is the iterator. An optional second parameter, called
+    <code>end</code>, allows the caller to specify a value to be returned in
+    the case that the iterator has reached its end. If left unspecified, its
+    default value is <code>None</code>.
+    </p>
+
+    <p>
+    There is no function for testing whether an iterator has reached its end.
+    Instead, conversion to a Boolean value is used. This can take the form of
+    calling the <code>bool</code> function, or simply using the iterator where
+    a Boolean expression is expected, such as the expression in an
+    <code>if</code> or <code>while</code> statement.
+    </p>
+
+    <h4>Math functions</h4>
+
+    <p>
+    Several math-related functions should be available, again, depending on the
+    application in which the Asp engine is hosted.
+    </p>
+
+    <ul>
+      <li>
+      Trigonometric functions: <code>sin</code>, <code>cos</code>,
+      <code>tan</code>, <code>asin</code>, <code>acos</code>,
+      <code>atan</code>, and <code>atan2</code>.
+      </li>
+      <li>
+      Hyperbolic functions: <code>sinh</code>, <code>cosh</code>,
+      <code>tanh</code>, <code>asinh</code>, <code>acosh</code>, and
+      <code>atanh</code>.
+      </li>
+      <li>
+      The hypotenuse (distance) function: <code>hypot</code>.
+      </li>
+      <li>
+      Exponential and logarithmic functions: <code>exp</code>,
+      <code>log</code>, and <code>log10</code>.
+      </li>
+      <li>
+      Rounding functions: <code>ceil</code>, <code>floor</code>, and
+      <code>round</code>.
+      </li>
+      <li>
+      Absolute value function: <code>abs</code>.
+      </li>
+    </ul>
+
+    <p>
+    These functions are all derived from their C/C++ language equivalents. As
+    in Python, the <code>log</code> function accepts an optional second
+    parameter, <code>base</code>, which specifies the base of the logarithm.
+    The default base is <i>e</i>, yielding the natural logarithm.
+    </p>
+
+    <h3>Functions in the standalone application</h3>
+
+    <p>
+    The standalone application, <span class='tt'>asps</span>, supports all the
+    functions mentioned in the previous section, plus a <code>print</code>
+    function for writing object values to the standard output. The
+    <code>print</code> function accepts a variable number of arguments. The
+    output is normally terminated with a newline and when more than one value
+    is given, a space character is normally used to separate each value on the
+    line. The argument separator and line terminator can be overridden by
+    specifying values for the <code>sep</code> and <code>end</code>
+    parameters, respectively. To print a blank line, call the print function
+    with no arguments.
+    </p>
+
+    <h3>External arguments</h3>
+
+    <p>
+    The Asp engine can make externally supplied arguments available to
+    scripts. Whether this feature is available is up to the developer of the
+    application. If supported, external arguments appear in the
+    <code>sys.args</code> variable, which is a tuple of strings. Recall that
+    the script can simply access the arguments with <code>args</code> (i.e.,
+    without specifying the module) since the <code>sys</code> module is
+    searched automatically for variable references, unless of course there is
+    a local variable called <code>args</code>.
+    </p>
+
+    <p>
+    The first element in the <code>args</code> tuple is the entire arguments
+    string supplied by the user. Subsequent elements in the tuple contain
+    individual arguments from the supplied string, extracted according to a
+    simple set of rules described below.
+    </p>
+
+    <p>
+    Arguments are normally separated by white space (e.g., spaces, tabs,
+    etc.). To specify a single argument that contains white space, the
+    argument can be enclosed in single or double quotes (<code>'</code> or
+    <code>"</code>). To include a quote as part of an argument, it may be
+    escaped using the backslash (<code>\</code>). The backslash also works
+    inside double quotes but is taken literally inside single quotes. And of
+    course, to include a backslash, two backslashes must be used, the first
+    one escaping interpretation of the second.
+    </p>
+
+    <p>
+    It should be noted that the standalone application accepts arguments on
+    the command line and passes them to the script.
+    </p>
+
+    <h2>Final thoughts</h2>
+
+    <p>
+    All the major topics of the Asp programming language and environment that
+    relate to the script writer have been covered. This section includes some
+    miscellany not previously covered.
+    </p>
+
+    <h3>Compiler listing and debug information files</h3>
+
+    <p>
+    In addition to producing an executable file, the Asp compiler also
+    generates a listing file (<q><span class='tt'>.lst</span></q>) and a debug
+    information file (<q><span class='tt'>.aspd</span></q>). The listing
+    file contains a textual representation of the binary executable file,
+    listing each instruction on a separate line, followed by a list of symbol
+    values for each name used in the script. Normally, the script writer does
+    not need this file, but in case there are issues with code generation,
+    this file can be useful in finding bugs in the compiler.
+    </p>
+
+    <p>
+    The debug information file is used for translating error information when
+    a script ends abnormally. The standalone application performs this
+    translation automatically, using the debug information file to determine
+    the source location from the ending program counter. For custom embedded
+    applications, however, the developer of the system should provide some
+    other means of performing this translation, for example, in a separate
+    piece of software external to the embedded target, which is controlling
+    the application.
+    </p>
+
+    <p>
+    If no such mechanism is provided, it may be that a numeric error code and
+    ending program counter is made available. In this case, a generic utility,
+    <span class='tt'>aspinfo</span>, is provided to translate the numbers into
+    meaningful text. To translate a program counter, the
+    <q><span class='tt'>.aspd</span></q> file is required as input. Executing
+    the utility without arguments will display help information.
+    </p>
+
+    <h3>Script execution in the application</h3>
+
+    <p>
+    When executing a script on an embedded platform, the design of the
+    application must include some method for making binary executable files
+    accessible to the Asp engine. A couple of examples are transferring the
+    binary file via a communication link and storing the binary file in flash
+    memory. If the application supports it, a method must also be made to
+    supply arguments to the engine prior to script execution. In any case,
+    follow the instructions provided by the supplier of the application to
+    prepare your compiled scripts for execution.
+    </p>
+
+    <p>
+    Prior to executing a script, the Asp engine checks a couple of conditions
+    to ensure the integrity of the script binary. First, a check is made to
+    ensure the version of the compiler that generated the executable is
+    compatible with the engine running the code. Versions of both compiler and
+    engine consist of four parts: major, minor, patch, and tweak. To be
+    considered compatible, the major and minor numbers must match. After this
+    check, another check is made to ensure that the script was compiled for
+    the application at hand. When compiling a script, the compiler inserts a
+    value which is derived from the application specification file (a cyclic
+    redundancy check word, for those who are interested). The application also
+    includes this computed value and the two are compared. Therefore, it is
+    impossible to run a script in an application for which it was not
+    compiled.
+    </p>
+
+    <h3>What next?</h3>
+
+    <p>
+    Each application supporting Asp should include documentation for the
+    functions it makes available to scripts. Before writing scripts for a
+    specific application, this documentation must be consulted.
+    </p>
+
+    <p>
+    As mentioned previously, if you are an application developer, the
+    <a href='app.html'>Application Developer's Guide</a> includes specific
+    guidance for incorporating Asp into your application.
+    </p>
+
+    <p>
+    Regardless of your role, it is our sincere hope that you enjoy your
+    adventures in Asp.
+    </p>
+
+    <hr>
+
+  </body>
+
+</html>

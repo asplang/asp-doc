@@ -1,0 +1,150 @@
+*
+{
+    box-sizing: border-box;
+}
+
+/* Headings with section numbering. */
+
+h1
+{
+    counter-reset: h2count;
+}
+
+h2:before
+{
+    counter-increment: h2count;
+    content: counter(h2count) '.\0000a0\0000a0';
+}
+
+h2
+{
+    counter-reset: h3count;
+}
+
+h3:before
+{
+    counter-increment: h3count;
+    content: counter(h2count) '.' counter(h3count) '.\0000a0\0000a0';
+}
+
+h3
+{
+    counter-reset: h4count;
+}
+
+h4:before
+{
+    counter-increment: h4count;
+    content:
+        counter(h2count) '.' counter(h3count) '.' counter(h4count)
+        '.\0000a0\0000a0';
+}
+
+h4
+{
+    counter-reset: h5count;
+}
+
+h5:before
+{
+    counter-increment: h5count;
+    content:
+        counter(h2count) '.' counter(h3count) '.' counter(h4count)
+        '.' counter(h5count) '.\0000a0\0000a0';
+}
+
+h5
+{
+    counter-reset: h6count;
+}
+
+h6:before
+{
+    counter-increment: h6count;
+    content:
+        counter(h2count) '.' counter(h3count) '.' counter(h4count)
+        '.' counter(h5count) '.' counter(h6count) '.\0000a0\0000a0';
+}
+
+/* Keyboard font. */
+
+kbd
+{
+    font-weight: bold;
+}
+
+/* Standard table formatting. */
+
+table
+{
+    border-collapse: collapse;
+    margin: auto;
+    max-width: 75%;
+}
+
+th, td
+{
+    border: 1px solid black;
+    padding: 0px 1em;
+}
+
+td
+{
+    text-align: left;
+}
+
+/* Tables with vertical column headings. */
+
+th.vertical
+{
+    border: 1px solid black;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    padding: 1ex 1em;
+}
+
+/* Fixed-sized table layout. */
+
+table.fixed
+{
+    table-layout: fixed;
+    max-width: 90%;
+}
+
+th.fixed, td.fixed
+{
+    margin: 0px;
+    padding: 1px;
+    overflow: hidden;
+    text-align: center;
+}
+
+/* Table layout for instruction lists. */
+
+table.inst, th.inst, td.inst
+{
+    margin: 0px;
+    border-style: none;
+    padding-left: 40px; /* Same as blockquote margin-left */
+    padding-right: 1em;
+}
+
+td.inst:nth-child(2)
+{
+    font-size: smaller;
+    text-align: right;
+}
+
+/* Formatting classes. */
+
+.tt
+{
+    font-family: monospace;
+}
+
+.center
+{
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}

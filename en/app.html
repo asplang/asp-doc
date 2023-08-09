@@ -1,0 +1,1798 @@
+<!DOCTYPE html>
+<html lang='en'>
+
+  <head>
+
+    <meta name='keywords' content='Asp, Python, Script, Embedded'>
+    <link rel='stylesheet' href='styles.css'>
+
+    <title>Asp Application Developer's Guide</title>
+
+  </head>
+
+  <body>
+
+    <center><big>Asp Scripting Platform</big></center>
+
+    <p>
+    <a href='index.html'>Other documents</a>
+    </p>
+
+    <hr>
+
+    <h1>Asp Application Developer's Guide</h1>
+
+    <h2>Introduction</h2>
+
+    <p>
+    It is often desirable to have a scripting capability within an embedded
+    application. The Asp scripting platform was created for such a purpose.
+    The purpose of this document is to guide embedded application developers
+    through the process of incorporating Asp into their applications.
+    </p>
+
+    <h2>Why use Asp?</h2>
+
+    <p>
+    Embedded systems are usually resource constrained. However, many scripting
+    environments utilize significant amounts of resources such as memory and
+    uninterruptable processing time. To address these concerns, Asp was
+    designed to restrict the amounts of resources that are required when
+    running scripts. Of course, Asp can be used where these constraints are
+    not as rigid, but its design is particularly targeted at platforms where
+    resources are limited.
+    </p>
+
+    <p>
+    The Asp language resembles Python. However, unlike in the Python
+    environment, Asp scripts must be compiled before being executed in the Asp
+    script engine. The resulting executable is usually smaller in relation to
+    its source code because it contains compact machine-like instructions, and
+    all variable names have been converted to numbers to save space.
+    </p>
+
+    <p>
+    The engine is provided as a small library that is linked into the host
+    application. Because many embedded systems support only C libraries, the
+    Asp script engine is implemented entirely in C.
+    </p>
+
+    <p>
+    Asp attempts to behave in the best ways possible with respect to memory
+    utilization. The engine makes no use of dynamic memory allocation (i.e.,
+    <code>malloc</code>, <code>free</code>, etc.). The amount of memory
+    allocated for script execution is defined by the application during Asp
+    initialization and remains constant. The engine's implementation makes no
+    use of recursion, minimizing the demands on the run-time
+    stack<a href='#Note-Recursion'><sup>*</sup></a>.
+    </p>
+
+    <p>
+    Asp also leaves the application in control of the processor as much as
+    possible. Instead of giving complete control of the processor to the
+    script engine when running a script, Asp provides a routine to advance the
+    script by a single instruction at a time. Each instruction takes a very
+    small amount of time to execute, allowing the application to perform other
+    critical tasks such as servicing watchdog timers, handling asynchronous
+    events, etc. Also, if a script needs to be paused or stopped, the
+    application may simply stop advancing the script to pause its execution or
+    reset the engine to abort it.
+    </p>
+
+    <p>
+    Asp scripts may call appropriately designed application functions.
+    Sometimes, the task that a function performs may take a long time to
+    complete. In such cases, Asp provides a re-entry model that allows
+    application functions to be non-blocking (and re-entrant) while making the
+    function call from the script appear to block, simplifying script logic.
+    This allows the application to remain in control of script execution and
+    other tasks in a single location within the code.
+    </p>
+
+    <p>
+    For details on writing Asp scripts and preparing them for execution, see
+    the <a href='script.html'>Script Writer's Guide</a>.
+    </p>
+
+    <blockquote id='Note-Recursion'><sup>*</sup><small>
+    Logic that is recursive in nature is implemented using iteration and uses
+    Asp's data memory stack (which is bound by the amount of data memory that
+    is made available to the engine) instead of using the embedded system's
+    run-time stack.
+    </small></blockquote>
+
+    <h2>Getting started</h2>
+
+    <p>
+    To incorporate the Asp script engine into an application, the application
+    code must be linked with the Asp engine library. The library can be
+    provided as static or shared varieties. For Linux environments, the
+    library can be linked using <span class='tt'>-laspe</span> on the
+    <span class='tt'>gcc</span> command line.
+    </p>
+
+    <p>
+    To use the Asp application programmer interface (API) in the code, include
+    the <code>&lt;asp.h&gt;</code> header.
+    </p>
+
+    <blockquote><pre>
+#include &lt;asp.h&gt;</pre>
+    </blockquote>
+
+    <p>
+    Many of the API functions return enumerated error codes. Functions related
+    to loading script executable code into the engine return a value of type
+    <code>AspAddCodeResult</code>, while functions related to script execution
+    return a value of type <code>AspRunResult</code>. Values for these
+    enumerations are listed and described in the appendices.
+    </p>
+
+    <p>
+    Including the <code>&lt;asp.h&gt;</code> header defines the
+    <code>ASP_VERSION</code> macro. This macro is provided to guard against
+    changes to the API in future versions of the library. The value is a
+    four-byte unsigned integer composed of the four components of the version
+    (major, minor, patch, and tweak), with the major component being the
+    most-significant byte. The following example shows how to handle a
+    difference with some of the collection-oriented functions introduced in
+    version 0.7.0.0 of the library.
+    </p>
+
+    <blockquote><pre>
+#if ASP_VERSION &lt; 0x00700000
+AspTupleAppend(engine, tuple, value);
+AspUnref(value);
+#else
+AspTupleAppend(engine, tuple, value, true);
+#endif</pre>
+    </blockquote>
+
+    <p>
+    While every attempt is made to keep the API as stable as possible,
+    sometimes changes are necessary. The above technique can come in handy if
+    the application code must support multiple versions of Asp that have
+    differing APIs.
+    </p>
+
+    <h2>Development flow</h2>
+
+    <p>
+    For scripts to be useful, they must be able to call C functions within the
+    application to perform actions implemented in the application code. Asp
+    uses an application specification file to describe those functions defined
+    within the application that a script can call.
+    </p>
+
+    <p>
+    To accommodate the inclusion of these function specifications, developing
+    applications that use Asp requires additional steps in the development
+    flow. First, the script-callable functions are identified in an
+    application specification source file
+    (<q><span class='tt'>.asps</span></q>). This file is then processed to
+    produce three output files: a C header, a C source file, and a binary
+    application specification file (<q><span class='tt'>.aspec</span></q>)
+    which is used by the Asp compiler when compiling scripts for the
+    application. The next section describes the syntax of the application
+    specification source file, and figure below shows where it fits into the
+    development flow.
+    </p>
+
+    <img src='flow.png' class='center' width='75%'>
+
+    <p>
+    In the diagram, the region enclosed in dotted outline shows the
+    development flow. (Outside of that is the script preparation and execution
+    flow.) As shown, the Asp generator (<span class='tt'>aspg</span>) is used
+    to generate the two C source files that must be included in the build of
+    the application. The generated header should be included in any source
+    files that define script-callable functions to ensure they are defined
+    properly. This is especially true if the functions are implemented in C++
+    to ensure they are defined using the C linkage convention. The diagram
+    also shows the Asp engine library being linked into the application
+    </p>
+
+    <h2>Application specification</h2>
+
+    <p>
+    As mentioned above, script-callable functions must be described in an
+    application specification source file
+    (<q><span class='tt'>.asps</span></q>) and then used in the development
+    flow. This source file describes (a)&nbsp;functions that scripts may call,
+    and (b)&nbsp;variables with assigned initial values. The syntax for
+    describing a function resembles the Asp <code>def</code> statement without
+    the code body. Instead of a colon (<code>:</code>) at the end of the
+    statement, an equals sign (<code>=</code>) followed by the name of the C
+    function is given. Here is a short example defining two functions.
+    </p>
+
+    <blockquote><pre>
+def sleep(s) = asp_sleep
+def print(*args) = asp_print</pre>
+    </blockquote>
+
+    <p>
+    With these definitions in place, a script that calls the
+    <code>sleep</code> or <code>print</code> functions will end up calling the
+    application's <code>asp_sleep</code> and <code>asp_print</code> C
+    functions, respectively<a href='#Note-FunctionNames'><sup>*</sup></a>.
+    Notice that positional variable argument lists are supported, as in the
+    <code>*args</code> parameter of the print function. (Note, however, that
+    keyword variable argument lists &mdash; **kwargs &mdash; are not
+    supported at this time.)
+    </p>
+
+    <p>
+    Function parameters may be assigned default values, but the values are
+    restricted to simple constants. These are <code>None</code>,
+    <code>...</code> (the ellipsis), the Boolean values <code>False</code> and
+    <code>True</code>, integers, floating-point values, and strings. So, for
+    example, an empty tuple (<code>()</code>) is not a valid default value.
+    Here is an example of a function that converts its argument to a string.
+    Its only parameter has a default value of the empty string so that it may
+    be called with no arguments, resulting in the function presumably
+    returning an empty string.
+    </p>
+
+    <blockquote><pre>
+def str(x = '') = asp_str</pre>
+    </blockquote>
+
+    <p>
+    In addition to functions, variables may be defined and assigned an initial
+    constant value. The assigned value has the same restrictions as those for
+    function parameter default values; they must be simple constants.
+    Variables defined in this way provide a convenient way for the application
+    to supply constants for use within scripts.
+    </p>
+
+    <blockquote><pre>
+PI = 3.1415926535</pre>
+    </blockquote>
+
+    <p>
+    It should be noted that all the function and variable definitions
+    described in the application specification are initialized prior to each
+    new script execution. So, a script that makes changes to the definitions
+    during its execution will not affect the environment of the next script to
+    run. For example, if a script deletes an application function definition
+    or assigns a new value to an application variable, these changes remain in
+    effect only until the end of the script's execution. The next script sees
+    the original definitions when it starts.
+    </p>
+
+    <p>
+    Finally, Asp defines several built-in functions, but to use them, they
+    must be defined in the application's specification file. To facilitate
+    this, application specification source files for these built-in functions
+    are provided and may be included in the main specification using the
+    <code>include</code> statement. Currently, there are four such files.
+    </p>
+
+    <blockquote><pre>
+include type
+include collect
+include iter
+include math</pre>
+    </blockquote>
+
+    <p>
+    The names of the associated C functions for these built-ins all start with
+    <q><code>Asp_</code></q>, so applications should avoid naming their own
+    variables or functions with this prefix. The include files are available
+    in a common include directory. On Linux systems, this is typically
+    <span class='tt'>/usr/include/asps</span>. The built-in functions are
+    described in the <a href='script.html'>Script Writer's Guide</a>.
+    </p>
+
+    <p>
+    As with Asp's syntax, comments are permitted. Also, line continuations may
+    be used when a definition spans multiple lines.
+    </p>
+
+    <blockquote><pre>
+# Function to delete a range of files by time.
+def delete_files_by_time \
+    (start_time, end_time, \
+     timeout = None) = asp_delete_files_by_time</pre>
+    </blockquote>
+
+    <p>
+    The above definition uses a number sign (<code>#</code>) to introduce a
+    comment, and a backslash (<code>\</code>) to continue the definition onto
+    another line.
+    </p>
+
+    <blockquote id='Note-FunctionNames'><sup>*</sup><small>
+    The examples use C function names starting with <q><code>asp_</code></q>
+    as a matter of convention. However, note that there are no restrictions on
+    the name of the C function (other than being a valid C identifier). It is
+    advisable to avoid names starting with <q><code>Asp_</code></q>, however,
+    since this prefix is used in the library implementation.)
+    </small></blockquote>
+
+    <h2 id='EngineControl'>Engine control</h2>
+
+    <p>
+    A script engine instance is defined by the <code>AspEngine</code> type (a
+    <code>typedef</code> of a structure definition). Most functions in the
+    engine's API take an <code>AspEngine</code> pointer as their first
+    argument. Note that because everything about a script engine is defined in
+    this structure, it is possible to have multiple script engine instances
+    present simultaneously in a single application. It is left to the
+    imagination of the developer as to how this might be applied.
+    </p>
+
+    <p>
+    The following sections describe the API functions that control the script
+    engine or query it for information. In most cases, these functions are not
+    designed to be called from within a script-callable application function;
+    they should only be used outside the context of an executing script.
+    </p>
+
+    <p>
+    The basic outline of script execution logic is as follows:
+    </p>
+
+    <ol>
+      <li>
+      Declare/allocate an <code>AspEngine</code> structure instance.
+      </li>
+      <li>
+      Optionally use the <code>AspDataEntrySize</code> function to determine
+      the number of bytes to allocate for the engine's data area.
+      </li>
+      <li>
+      Declare/allocate space for the code and data areas.
+      </li>
+      <li>
+      Optionally initialize a script context area, if used.
+      </li>
+      <li>
+      Call <code>AspInitialize</code> to initialize the engine instance and
+      data area.
+      </li>
+      <li>
+      Call <code>AspAddCode</code> one or more times to load script executable
+      code into the code area.
+      </li>
+      <li>
+      When all the code has been added, call <code>AspSeal</code> to seal off
+      the code and perform final checks prior to execution.
+      </li>
+      <li>
+      Optionally add script arguments via <code>AspSetArguments</code> or
+      <code>AspSetArgumentsString</code>, depending on how the arguments are
+      defined in the application.
+      </li>
+      <li>
+      Run the script by calling <code>AspStep</code> repeatedly and checking
+      its return value. Any value other than <code>AspRunResult_OK</code>
+      indicates that the script has ended.
+      </li>
+      <li>
+      To execute the same script again, reinitialize the script context area
+      if applicable, call <code>AspRestart</code>, and then go back to step 8.
+      </li>
+      <li>
+      To prepare to run a different script, reinitialize the script context
+      area if applicable, call <code>AspReset</code>, and then go back to step
+      6.
+      </li>
+    </ol>
+
+    <p>
+    Details of these and other engine control functions are given in the
+    sections below.
+    </p>
+
+    <h3>Initialization</h3>
+
+    <p>
+    The following functions prepare the engine to execute a script:
+    <code>AspInitialize</code>, <code>AspAddCode</code>, <code>AspSeal</code>,
+    <code>AspSetArguments</code> (and the related
+    <code>AspSetArgumentsString</code>), <code>AspRestart</code>, and
+    <code>AspReset</code>.
+    </p>
+
+    <h4><code>AspInitialize</code></h4>
+
+    <blockquote><pre>
+AspRunResult AspInitialize
+    (AspEngine *,
+     void *code, size_t codeSize,
+     void *data, size_t dataSize,
+     const AspAppSpec *, void *context);</pre>
+    </blockquote>
+
+    <p>
+    To initialize the engine, use the <code>AspInitialize</code> function and
+    pass it the address of an <code>AspEngine</code> instance and the other
+    listed parameters. The application is responsible for allocating memory
+    for the <code>AspEngine</code> instance (very small), the code and data
+    blocks, and, if used, the context area (more on script contexts in a
+    subsequent). If the context is not being used, pass a null pointer. The
+    required <code>AspAppSpec</code> pointer should point to the global
+    instance defined in the generated application specification C source file
+    and declared in the generated C header. Its name is
+    <code>AspAppSpec_<i>app</i></code>, where <code><i>app</i></code> is the
+    base name of the application specification file name. The
+    <code>AspAppSpec</code> instance is treated as read-only and can therefore
+    be shared between multiple engine instances if desired.
+    </p>
+
+    <p>
+    <code>AspInitialize</code> needs to be called only once per engine
+    instance. Note also that there is no matching <q><code>close</code></q>
+    function; when the script engine is no longer needed, the space occupied
+    by the <code>AspEngine</code> instance may be reclaimed, along with the
+    code, data, and context areas.
+    </p>
+
+    <p>
+    The size of the code and data areas is specified in bytes. It should be
+    noted that the data area consists of a set of fixed-sized slots known as
+    data entries. The size of a single entry can be ascertained by using the
+    <code>AspDataEntrySize</code> function. Knowing this size can help ensure
+    there are no wasted data bytes by using a multiple of the entry size for
+    the data area byte size.
+    </p>
+
+    <h4><code>AspAddCode</code> and <code>AspSeal</code></h4>
+
+    <blockquote><pre>
+AspAddCodeResult AspAddCode
+    (AspEngine *, const void *code, size_t codeSize);
+AspAddCodeResult AspSeal(AspEngine *);</pre>
+    </blockquote>
+
+    <p>
+    Once the engine is initialized, script binary code can be loaded. The code
+    can be loaded in blocks, if more convenient for the application, by making
+    repeated calls to <code>AspAddCode</code>. Each call appends the specified
+    block to the end of any code already in the engine. Once all the code is
+    loaded, the <code>AspSeal</code> must be called to complete the loading
+    process.
+    </p>
+
+    <p>
+    Both functions return an <code>AspAddCodeResult</code> enumerated value.
+    Several things can go wrong during the loading process; details of the
+    error codes are given below. If all the calls to <code>AspAddCode</code>
+    and <code>AspSeal</code> return <code>AspAddCodeResult_OK</code>, then the
+    script is ready to run. See Execution Control section for functions that
+    control script execution. Additional functions applicable prior to
+    execution are discussed below.
+    </p>
+
+    <table id='AspAddCodeResult'>
+      <tr>
+        <th><code>AspAddCodeResult</code> error code suffix</th>
+        <th>Description</th>
+      </tr>
+      <tr>
+        <td><code>OK</code></td>
+        <td>No error has occurred.</td>
+      </tr>
+      <tr>
+        <td><code>InvalidFormat</code></td>
+        <td>
+        Script binary executable files must start with the four ASCII
+        characters <q><span class='tt'>AspE</span></q>. If this is not the
+        case, this error code is returned.
+        </td>
+      <tr>
+      <tr>
+        <td><code>InvalidVersion</code></td>
+        <td>
+        The major and minor components of the script compiler are written to
+        the script binary executable and are compared to the corresponding
+        version components of the engine running the code. This error code is
+        returned if the version components do not match exactly, indicating an
+        incompatibility issue.
+        </td>
+      <tr>
+      <tr>
+        <td><code>InvalidCheckValue</code></td>
+        <td>
+        The application specification defines a check value (a four-byte
+        cyclic redundancy check value, or CRC) based on the names of the
+        application functions, the names and any default values of function
+        parameters, and the names and assigned values of application
+        variables. The compiler writes this value into the script binary
+        executable. It is compared to the check value in the
+        <code>AspAppSpec</code> structure provided during engine
+        initialization and if different, this error is returned.
+        </td>
+      <tr>
+      <tr>
+        <td><code>OutOfCodeMemory</code></td>
+        <td>
+        The amount of code space is insufficient to load the amount of code
+        contained in the script binary file.
+        </td>
+      <tr>
+      <tr>
+        <td><code>InvalidState</code></td>
+        <td>
+        <code>AspAddCode</code> or <code>AspSeal</code> has been called when
+        the engine is in a state where calls to these functions are not
+        expected, for example, when a script is running.
+        </td>
+      <tr>
+    </table>
+
+    <h4 id='SettingArguments'><code>AspSetArguments</code> and
+    <code>AspSetArgumentsString</code></h4>
+
+    <blockquote><pre>
+AspRunResult AspSetArguments(AspEngine *, const char * const *args);
+AspRunResult AspSetArgumentsString(AspEngine *, const char *s);</pre>
+    </blockquote>
+
+    <p>
+    Asp supports the notion of passing external arguments into a script. This
+    must be done after the code has been loaded and prior to execution (i.e.,
+    after either <code>AspSeal</code> or <code>AspRestart</code> has been
+    called and before calling <code>AspStep</code> for the first time).
+    </p>
+
+    <p>
+    External arguments may be specified in one of two ways: as an array of
+    character strings, or as a single string. The first method resembles the
+    way external arguments are passed to the C/C++ main routine (i.e.,
+    <code>argc</code> and <code>argv</code> parameters) and is invoked using
+    <code>AspSetArguments</code>. The final item in the args array must be a
+    null pointer. The second method, using <code>AspSetArgumentString</code>,
+    utilizes an argument parser to extract individual arguments from the
+    single string. The application may use either method, depending on which
+    is more convenient.
+    </p>
+
+    <p>
+    If the second method is used, the parsing rules are as follows. Normally,
+    arguments are separated by one or more whitespace characters (space, tab,
+    etc.). Single or double quotes marks (<code>'</code> or <code>"</code>)
+    may be used to surround an argument that contains whitespace. A single
+    quote may appear within a double-quoted string, and vice versa. The
+    backslash character (<code>\</code>) is used outside quoted sequences or
+    within double-quoted strings to escape the meaning of these special
+    characters, including the backslash character itself.
+    </p>
+
+    <p>
+    See the <a href='script.html'>Script Writer's Guide</a> for how to access
+    external arguments from within a script.
+    </p>
+
+    <h4><code>AspRestart</code> and <code>AspReset</code></h4>
+
+    <blockquote><pre>
+AspRunResult AspRestart(AspEngine *);
+AspRunResult AspReset(AspEngine *);</pre>
+    </blockquote>
+
+    <p>
+    At any point after the script is ready to run, has started running, or is
+    finished execution, it may be restarted from the beginning by calling
+    <code>AspRestart</code>. This reinitializes the data area, including the
+    clearing of any previously defined external arguments, but leaves the
+    script code intact. This can be useful if a script is to be run multiple
+    times, as it circumvents the need to reload the code.
+    </p>
+
+    <p>
+    To run a different script, the <code>AspReset</code> function must be
+    called prior to loading the code of the new script. This clears not only
+    the data area, but also the code area, restoring the engine back to the
+    state it was in immediately following the call to
+    <code>AspInitialize</code>.
+    </p>
+
+    <p>
+    In both cases, any functions and variables defined by the application are
+    restored to their original state, ensuring there is no <q>cross
+    contamination</q> from the actions of one script to another.
+    </p>
+
+    <h3>Execution control</h3>
+
+    <p>
+    Scripts are executed using the <code>AspStep</code> function. Other
+    functions are available to query various aspects of the engine related to
+    execution: <code>AspIsReady</code>, <code>AspIsRunning</code>,
+    <code>AspIsRunnable</code>, <code>AspProgramCounter</code>, and
+    <code>AspLowFreeCount</code>.
+    </p>
+
+    <h4 id='AspStep'><code>AspStep</code></h4>
+
+    <blockquote><pre>
+AspRunResult AspStep(AspEngine *);</pre>
+    </blockquote>
+
+    <p>
+    Scripts are executed by repeated calls to the <code>AspStep</code>
+    function. Each call executes a single instruction of the script. Most
+    lines of code from the script's source file are translated by the compiler
+    into several machine-like instructions, each of which is executed by a
+    call to <code>AspStep</code>, so it may take several calls to
+    <code>AspStep</code> to execute a single source line of script code.
+    </p>
+
+    <p>
+    The <code>AspStep</code> function returns an <code>AspRunResult</code>
+    enumerated value, the values of which are documented below. Two values are
+    important enough to mention here. A value of <code>AspRunResult_OK</code>
+    indicates that the next instruction executed successfully and that the
+    script is still considered to be in the running state. A value of
+    <code>AspRunResult_Complete</code> indicates that the script has completed
+    execution successfully. All other values indicate that something has gone
+    wrong during execution. After getting any return value other than
+    <code>AspRunResult_OK</code>, the script's execution is considered to be
+    ended.
+    </p>
+
+    <table id='AspRunResult'>
+      <tr>
+        <th><code>AspRunResult</code> error code suffix</th>
+        <th>Description</th>
+      </tr>
+      <tr>
+        <td><code>OK</code></td>
+        <td>No error has occurred.</td>
+      </tr>
+      <tr>
+        <td><code>Complete</code></td>
+        <td>
+        The script has successfully finished executing. Note that while most
+        error codes can be returned by script-callable application functions,
+        this one cannot be. An attempt to do so will cause
+        <code>AspStep</code> to return
+        <code>AspRunResult_MalformedFunctionCall</code> instead.
+        </td>
+      <tr>
+      <tr>
+        <td><code>InitializationError</code></td>
+        <td>A non-specific error occurred during the call to
+        <code>AspInitialize</code>. This can be caused by passing invalid
+        parameters to this function.
+        </td>
+      <tr>
+      <tr>
+        <td><code>InvalidState</code></td>
+        <td>An API function has been called when the engine is in a state
+        where it is not expected. Calling engine control functions from within
+        a script-callable application function call will cause this error.
+        </td>
+      <tr>
+      <tr>
+        <td><code>InvalidInstruction</code></td>
+        <td>An invalid instruction has been encountered in the script
+        executable code. This would normally indicate some sort of memory
+        corruption in the code area, or a bug in the Asp compiler.
+        </td>
+      <tr>
+      <tr>
+        <td><code>InvalidEnd</code></td>
+        <td>The script has indicated that it is finished, but the engine's
+        internal stack (maintained in the data area) is not empty. This may
+        indicate a bug in the Asp compiler.
+        </td>
+      <tr>
+      <tr>
+        <td><code>BeyondEndOfCode</code></td>
+        <td>In reading the next instruction or its operand(s), the program
+        counter would advance beyond the end of the loaded code. This may
+        indicate memory corruption in the code area, or a bug in the Asp
+        compiler.
+        </td>
+      <tr>
+      <tr>
+        <td><code>StackUnderflow</code></td>
+        <td>The engine is attempting to pop a value off its internal stack
+        (maintained in the data area), but the stack is empty. This may
+        indicate a bug in the Asp compiler.
+        </td>
+      <tr>
+      <tr>
+        <td><code>InvalidContext</code></td>
+        <td>The engine is attempting to execute an instruction associated with
+        an Asp <code>global</code> or <code>local</code> statement outside the
+        context of a function. This may indicate a bug in the Asp compiler.
+        </td>
+      <tr>
+      <tr>
+        <td><code>Redundant</code></td>
+        <td>A redundant <code>global</code> or <code>local</code> statement is
+        being made when the variable in question already has the indicated
+        override.
+        </td>
+      <tr>
+      <tr>
+        <td><code>UnexpectedType</code></td>
+        <td>An operand is not of an expected type. Application functions can
+        also return this code to end execution when a function argument is of
+        an unexpected type. For example, the index value of an indexing
+        expression is expected to be an integer.
+        </td>
+      <tr>
+      <tr>
+        <td><code>SequenceMismatch</code></td>
+        <td>A mismatch between the sequences on the left and right sides of an
+        assignment has been encountered.
+        </td>
+      <tr>
+      <tr>
+        <td><code>NameNotFound</code></td>
+        <td>An attempt to load the value of a variable or otherwise use its
+        value (for example, calling a function by name) finds that the
+        variable is not defined (i.e., has not been assigned a value).
+        </td>
+      <tr>
+      <tr>
+        <td><code>KeyNotFound</code></td>
+        <td>An attempt to look up a key in a set or dictionary has been made
+        and the key cannot be found.
+        </td>
+      <tr>
+      <tr>
+        <td><code>ValueOutOfRange</code></td>
+        <td>A value is not in the expected range. For example, the index value
+        used in an indexing expression is out of range for the given sequence.
+        Another example is that the right operand of a shift operation is less
+        than zero.
+        </td>
+      <tr>
+      <tr>
+        <td><code>IteratorAtEnd</code></td>
+        <td>An attempt to use the value referred to by an iterator finds that
+        the iterator has advanced to the end of the collection. This should
+        not happen when using the iterators provided by the <code>for</code>
+        statement.
+        </td>
+      <tr>
+      <tr>
+        <td><code>MalformedFunctionCall</code></td>
+        <td>A script-callable application function returned
+        <code>AspRunResult_Complete</code>, presumably in an attempt to end
+        script execution successfully. This is not permitted.
+        </td>
+      <tr>
+      <tr>
+        <td><code>UndefinedAppFunction</code></td>
+        <td>An attempt has been made to call an application function that is
+        not defined by the application. This may indicate a bug in the Asp
+        compiler.
+        </td>
+      <tr>
+      <tr>
+        <td><code>DivideByZero</code></td>
+        <td>The script has attempted to use zero as the divisor of a division
+        or modulus operation.
+        </td>
+      <tr>
+      <tr>
+        <td><code>OutOfDataMemory</code></td>
+        <td>The script has attempted to allocate a data entry when no more are
+        available in the data area.
+        </td>
+      <tr>
+      <tr>
+        <td><code>Again</code></td>
+        <td>This code may be returned by script-callable application functions
+        to request re-entry in order to continue the operation. It is never
+        returned by <code>AspStep</code> or any other API function.
+        </td>
+      <tr>
+      <tr>
+        <td><code>Abort</code></td>
+        <td>A script has executed an <code>assert</code> statement with a
+        condition that evaluates to <code>False</code>.
+        </td>
+      <tr>
+      <tr>
+        <td><code>InternalError</code></td>
+        <td>An unexpected condition has occurred in the engine, likely caused
+        by memory corruption or a bug in the engine's implementation.
+        </td>
+      <tr>
+      <tr>
+        <td><code>NotImplemented</code></td>
+        <td>The sought-after functionality has not yet been implemented in the
+        engine. Check subsequent versions.
+        </td>
+      <tr>
+      <tr>
+        <td><code>Application</code></td>
+        <td>Script-callable application functions may return codes unique to
+        the application by using this code as a base for codes equal to or
+        greater than this code.
+        </td>
+      <tr>
+    </table>
+
+    <h4>Execution information</h4>
+
+    <blockquote><pre>
+bool AspIsReady(const AspEngine *);
+bool AspIsRunning(const AspEngine *);
+bool AspIsRunnable(const AspEngine *);
+size_t AspProgramCounter(const AspEngine *);</pre>
+    </blockquote>
+
+    <p>
+    After a script is loaded, the engine enters a state where it is ready to
+    run the script. The state is changed to running after the first call to
+    <code>AspStep</code>. The <code>AspIsReady</code>,
+    <code>AspIsRunning</code>, and <code>AspIsRunnable</code> return Boolean
+    values indicating whether the engine is ready to run a script, currently
+    running a script, or either one, respectively. The script's program
+    counter may be queried using the <code>AspProgramCounter</code> function.
+    The value returned is a byte offset into the code area.
+    </p>
+
+    <h4><code>AspLowFreeCount</code></h4>
+
+    <blockquote><pre>
+size_t AspLowFreeCount(const AspEngine *);</pre>
+    </blockquote>
+
+    <p>
+    The <code>AspLowFreeCount</code> function returns the lowest number of
+    available data entries during or after script execution. This is a useful
+    metric to determine whether, for any planned script, the engine has
+    sufficient data storage to run the script. Care must be taken to add a
+    margin of safety, as data memory utilization can vary from one run to
+    another depending on the various paths through the script's logic that may
+    take place. Note that to get meaningful data, the function must be called
+    prior to restarting/resetting the engine for the next run.
+    </p>
+
+    <p>
+    If needed, the value returned by this routine can be converted to bytes by
+    multiplying it by the value returned by the <code>AspDataEntrySize</code>
+    function.
+    </p>
+
+    <h3>Miscellaneous functions</h3>
+
+    <p>
+    Several additional functions are provided in the engine control API and
+    are documented below.
+    </p>
+
+    <h4><code>AspDataEntrySize</code></h4>
+
+    <blockquote><pre>
+size_t AspDataEntrySize(void);</pre>
+    </blockquote>
+
+    <p>
+    As mentioned above, <code>AspDataEntrySize</code> returns the number of
+    bytes of a single data entry within the engine's data area. The actual
+    value should be 16, but the function has been provided to guard against
+    any change in future versions of the library.
+    </p>
+
+    <h4><code>AspEngineVersion</code> and <code>AspCodeVersion</code></h4>
+
+    <blockquote><pre>
+void AspEngineVersion(uint8_t version[4]);
+void AspCodeVersion(const AspEngine *, uint8_t version[4]);</pre>
+    </blockquote>
+
+    <p>
+    Asp uses four-component version numbers in several places. The components
+    are referred to as major, minor, patch, and tweak (after CMake
+    conventions). Asp keeps tight control over compatibility by employing
+    version checking. For example, the major and minor components of the
+    version of the code generated by the compiler must match those of the
+    engine running the code. A mismatch is one of the reasons that
+    <code>AspAddCode</code> can fail.
+    </p>
+
+    <p>
+    Version information can be ascertained about both the engine and the code
+    loaded into the engine by using the <code>AspEngineVersion</code> and
+    <code>AspCodeVersion</code> functions, respectively. In both cases, the
+    version information is stored at the address provided by the version
+    argument, which is assumed to be a four-element byte array. The first
+    element in the array is the major component and the others follow the
+    expected order. Note that if code has not been completely loaded into the
+    engine, <code>AspCodeVersion</code> will return unpredictable values.
+    </p>
+
+    <h4><code>AspMaxCodeSize</code> and <code>AspMaxDataSize</code></h4>
+
+    <blockquote><pre>
+size_t AspMaxCodeSize(const AspEngine *);
+size_t AspMaxDataSize(const AspEngine *);</pre>
+    </blockquote>
+
+    <p>
+    It is up to the application to decide on the amount of memory to allocate
+    for the code and data areas. However, if the application needs to know
+    these values in an area of code that does not have access to the values
+    used during initialization, they may be obtained using
+    <code>AspMaxCodeSize</code> and <code>AspMaxDataSize</code>. Both are
+    maximum sizes (as specified to <code>AspInitialize</code>) and are
+    reported in bytes.
+    </p>
+
+    <h4><code>AspDump</code></h4>
+
+    <blockquote><pre>
+void AspDump(const AspEngine *, FILE *);</pre>
+    </blockquote>
+
+    <p>
+    If the Asp library has been built with the <code>ASP_DEBUG</code> macro
+    defined, the <code>AspDump</code> function is available for dumping out
+    the contents of the data memory in a human-readable form to the given C
+    file handle (e.g., <code>stdout</code> for printing to the standard
+    output). Normally, this function is not defined. Application developers
+    should only use a debug version of the library in cases where debugging
+    their script-callable functions is required.
+    </p>
+
+    <h2>Function interface</h2>
+
+    <p>
+    As mentioned previously, script-callable application functions have a
+    specific type of definition which is defined by the Asp generator,
+    <span class='tt'>aspg</span>. Prototypes of the application's
+    script-callable functions can be found in the generated C header, and look
+    something like this:
+    </p>
+
+    <blockquote><pre>
+AspRunResult <i>function_name</i>
+    (AspEngine *,
+     AspDataEntry *<i>argument1</i>,
+     AspDataEntry *<i>argument2</i>,
+     &hellip;
+     AspDataEntry **returnValue);</pre>
+    </blockquote>
+
+    <p>
+    It is the responsibility of the application developer to provide the
+    implementation for these functions. This involves extracting values from
+    the arguments, interacting with other parts of the application, and
+    returning an appropriate return value. In the case of mutable arguments
+    like lists and dictionaries, the function may also manipulate the contents
+    of such collections if desirable.
+    </p>
+
+    <p>
+    The following sections discuss the API that script-callable functions use
+    to perform these tasks. All Asp objects are represented as
+    <code>AspDataEntry</code> instances, all of which reside in the engine's
+    data area. All API functions that work with script objects use pointers to
+    <code>AspDataEntry</code>. The API includes functions for: type checking,
+    value extraction, conversion to string, collection information, object
+    creation, collection manipulation, and a few sundry other tasks.
+    </p>
+
+    <p>
+    To return a value to the script, the <code>returnValue</code> argument is
+    used. If left untouched, the script will receive a <code>None</code>
+    object as the return value. To return anything else, the implementation
+    should assign a data entry pointer to <code>*returnValue</code>.
+    </p>
+
+    <p>
+    Script-callable application functions must return a valid
+    <code>AspRunResult</code> value, normally <code>AspRunResult_OK</code> to
+    indicate success. Any other value (with the exception of
+    <code>AspRunResult_Again</code>; see below) indicates an error which will
+    cause the script to end. Application-specific error codes can be returned
+    and are formed by adding a non-negative value to
+    <code>AspRunResult_Application</code>. See
+    <a href='#AspRunResult'>the <code>AspRunResult</code> table</a> for a full
+    list of available error codes.
+    </p>
+
+    <h3>Type checking</h3>
+    <blockquote><pre>
+bool AspIs<i>Type</i>(const AspDataEntry *);
+bool AspIsIntegral(const AspDataEntry *);
+bool AspIsNumber(const AspDataEntry *);
+bool AspIsNumeric(const AspDataEntry *);
+bool AspIsSequence(const AspDataEntry *);</pre>
+    </blockquote>
+
+    <p>
+    In the syntax citation above, <code><i>Type</i></code> stands for any one
+    of the types supported by Asp. The actual function names are:
+    <code>AspIsNone</code>, <code>AspIsEllipsis</code>,
+    <code>AspIsBoolean</code>, <code>AspIsInteger</code>,
+    <code>AspIsFloat</code>, <code>AspIsRange</code>,
+    <code>AspIsString</code>, <code>AspIsTuple</code>, <code>AspIsList</code>,
+    <code>AspIsSet</code>, <code>AspIsDictionary</code>, and
+    <code>AspIsType</code>, all corresponding to the applicable type in the
+    name. Each one returns <code>true</code> if the argument is of the
+    applicable type.
+    </p>
+
+    <p>
+    In addition to these functions are a few that check for meaningful groups
+    of types. <code>AspIsIntegral</code> returns <code>true</code> if the
+    argument is either Boolean or integer. <code>AspIsNumber</code> returns
+    <code>true</code> for integer and floating-point values.
+    <code>AspIsNumeric</code> returns <code>true</code> for Booleans,
+    integers, and floating-point values. And finally,
+    <code>AspIsSequence</code> returns <code>true</code> for tuples and lists,
+    but not for strings, even though in some respects, strings can be treated
+    like sequences.
+    </p>
+
+    <h3>Value extraction</h3>
+    <blockquote><pre>
+bool AspIsTrue(AspEngine *, const AspDataEntry *)
+bool AspIntegerValue(const AspDataEntry *, int32_t *);
+bool AspFloatValue(const AspDataEntry *, double *);
+bool AspRangeValues
+    (AspEngine *, const AspDataEntry *,
+     int32_t *start, int32_t *end, int32_t *step);
+bool AspStringValue
+    (AspEngine *, const AspDataEntry *,
+     size_t *size, char *buffer, size_t index, size_t bufferSize);</pre>
+    </blockquote>
+
+    <p>
+    All Asp objects can be converted to a Boolean value, which is useful for
+    use in conditional statements. The <code>AspIsTrue</code> function returns
+    <code>true</code> if the given Asp object would evaluate to
+    <code>True</code> in a script conditional expression (e.g., an
+    <code>if</code> or <code>while</code> expression).
+    </p>
+
+    <p>
+    To extract a value from an Asp object, the <code>AspIntegerValue</code>,
+    <code>AspFloatValue</code>, <code>AspRangeValues</code>, and
+    <code>AspStringValue</code> functions are provided. All these functions
+    return <code>true</code> to indicate success. In the case of the first
+    two, the sought value is deposited at the given address. Since for ranges,
+    there are three values, three addresses are required, one for each
+    component of the range. Note that it is possible to extract an integer or
+    floating-point value from objects of Boolean, integer, or floating-point
+    type. For example, using <code>AspFloatValue</code> on a Boolean object
+    will result in a value of either <code>0.0</code> or <code>1.0</code>,
+    depending on whether the object was <code>False</code> or
+    <code>True</code>, respectively. Calling <code>AspIntegerValue</code> on a
+    floating-point value involves rounding truncation.
+    </p>
+
+    <p>
+    The <code>AspStringValue</code> function is a bit more complex. The
+    <code>size</code> parameter can be a null pointer, but if an address is
+    given, the full size of the Asp string is written to the given address.
+    Since Asp strings are not null terminated like C strings are, the value at
+    <code>size</code> refers only to the characters of the Asp string. The
+    <code>buffer</code> parameter may also be a null pointer, in which case no
+    data is extracted. If <code>buffer</code> is specified,
+    <code>bufferSize</code> must indicate the number of bytes in the buffer.
+    The <code>index</code> parameter indicates what byte within the Asp string
+    to start copying from.
+    </p>
+
+    <p>
+    So, a typical use of <code>AspStringValue</code> could be as follows.
+    First, the function is called to ascertain the size of the Asp string by
+    passing an address for <code>size</code> and a null pointer for
+    <code>buffer</code>. The application can then use whatever means necessary
+    to allocate enough space for the string data, plus an additional byte for
+    a null terminator. It can then call <code>AspStringValue</code> a second
+    time, this time passing a null pointer for <code>size</code> (since it is
+    already known), a pointer to the allocated memory for <code>buffer</code>,
+    <code>0</code> for <code>index</code> (since we are copying the entire
+    content), and the size of the buffer (including the null terminator) for
+    <code>bufferSize</code>. Since the buffer contains sufficient room,
+    <code>AspStringValue</code> will also write a terminating null character
+    at the end of the buffer. Note that in cases where only a portion of the
+    string is being extracted (i.e., <code>bufferSize</code> is less than or
+    equal to <code>*size&nbsp;-&nbsp;index</code>), a null terminator is not
+    written, as that would write past the end of the buffer. In this case, the
+    buffer cannot be treated as a C string, so care must be taken.
+    </p>
+
+    <p>
+    Another approach, if applicable, is to deal with the string content in a
+    piecemeal fashion. For example, if the application is searching for a
+    substring within the string or performing some other operation that does
+    not require the entire string to be in memory all at once, it may be
+    possible to extract parts of the string and process them in a loop. To
+    treat the pieces as C strings, the application should use a buffer one
+    byte larger than the size given in <code>bufferSize</code> and ensure that
+    the final byte of this buffer is set to the null character, as
+    <code>AspStringValue</code> will not write to it.
+    </p>
+
+    <h3>Conversion to string</h3>
+
+    <blockquote><pre>
+AspDataEntry *AspToString(AspEngine *, AspDataEntry *value);
+AspDataEntry *AspToRepr(AspEngine *, const AspDataEntry *value);</pre>
+    </blockquote>
+
+    <p>
+    Sometimes it is convenient to convert an Asp object to a string. An
+    example would be to print its value to a log. For this purpose, the
+    <code>AspToString</code> function creates a new Asp string object with a
+    textual representation of the given Asp object. A pointer to the new
+    object is returned. A null pointer return value indicates that
+    insufficient data memory exists to fulfill the request, so in this case,
+    the calling function should return
+    <code>AspRunResult_OutOfDataMemory</code>. In the normal case of a
+    non-null return value, it should be noted that the application is
+    responsible for ensuring the created object is either destroyed (via
+    <code>AspUnref</code>) or its ownership is transferred to another Asp
+    object that will persist after the function returns. See the section on
+    <a href='#ReferenceCounting'>reference counting</a> for more information.
+    </p>
+
+    <p>
+    The <code>AspToRepr</code> function is also provided. It replicates the
+    functionality of Python's <code>repr</code> function. This can come in
+    handy, for example, when displaying strings containing special characters,
+    which will be converted to printable escape sequences.
+    </p>
+
+    <p>
+    The astute reader will notice that the <code>AspToString</code>'s value
+    argument is not declared as <code>const</code>. This is because the object
+    being passed could in fact already be a string. In this case, instead of
+    creating a new string object, the reference count of the existing string
+    object is incremented, thus modifying the given object entry.
+    (<code>AspToString</code> internally calls <code>AspRef</code> in this
+    case.) The application need not treat this any differently than converting
+    other types of objects. It is still responsible for decrementing the use
+    count or otherwise dealing with the ownership of the object whose address
+    is returned.
+    </p>
+
+    <h3 id='CollectionInformation'>Collection information</h3>
+
+    <blockquote><pre>
+unsigned AspCount(const AspDataEntry *);
+AspDataEntry *AspElement(AspEngine *, AspDataEntry *sequence, int index);
+char AspStringElement(AspEngine *, const AspDataEntry *str, int index);
+AspDataEntry *AspFind
+    (AspEngine *, AspDataEntry *tree, const AspDataEntry *key);
+AspDataEntry *AspNext(AspEngine *, AspDataEntry *iterator);</pre>
+    </blockquote>
+
+    <p>
+    Asp supports a few types of collections: tuples, lists, sets, and
+    dictionaries. Strings can also be treated as collections (of characters)
+    in some cases. The application function API includes a few functions for
+    getting information from these types of objects.
+    </p>
+
+    <p>
+    <code>AspCount</code> returns the number of items inside the given object.
+    For a collection, this is the number of items in the collection. For all
+    other object types, it returns <code>1</code>.
+    </p>
+
+    <p>
+    To access the element of a sequence (i.e., a tuple or list, but not a
+    string), the <code>AspElement</code> function is used, which accepts an
+    index value and returns a pointer to the data entry at the indicated
+    position within the sequence. It does not increment the use count of the
+    returned entry. Normally, indices are zero-based, ranging from
+    <code>0</code> to one less than the number of elements. However, as in the
+    Asp language, negative indices are allowed in the range <code>-1</code> to
+    the number of elements expressed as a negative integer. An index value of
+    <code>-1</code> refers to the last element. If the given index value is
+    out of range, a null pointer is returned.
+    </p>
+
+    <p>
+    Because strings consist of characters, not objects, the
+    <code>AspElement</code> function does not handle them. Instead, the
+    <code>AspStringElement</code> function is provided for that purpose.
+    Instead of returning a data entry pointer, it returns the character found
+    at the indicated position. The index argument works in the same way as
+    with <code>AspElement</code>, permitting the use of negative index values.
+    An out-of-range index value causes the function to return the null
+    character (<code>'\0'</code>).
+    </p>
+
+    <p>
+    To locate an item in a set or dictionary, use the <code>AspFind</code>
+    function. Like the <code>AspElement</code> function, it does not increment
+    the use count of the returned data entry. As expected, if a matching item
+    is not found in the collection, a null pointer is returned. Otherwise, for
+    sets, the matching key entry is returned; for dictionaries, the entry
+    referring to the value associated with the matching key is returned.
+    </p>
+
+    <p>
+    The <code>AspNext</code> function works with an iterator to yield the next
+    value in a collection. Successive calls to <code>AspNext</code> return
+    subsequent values in the collection. Unlike the functions described above,
+    the caller is responsible for unreferencing the returned object or
+    otherwise dealing with its ownership. This is because in some cases (like
+    with iterating over a range or a string), a new object is created. In the
+    cases where an existing object is returned, <code>AspNext</code>
+    increments the use count so that treatment of the returned object is
+    consistent. If the iterator is advanced to the end of the collection,
+    <code>AspNext</code> returns a null pointer.
+    </p>
+
+    <h3>Object creation</h3>
+
+    <blockquote><pre>
+AspDataEntry *AspNew<i>Type</i>(AspEngine *);
+AspDataEntry *AspNewBoolean(AspEngine *, bool value);
+AspDataEntry *AspNewInteger(AspEngine *, int32_t value);
+AspDataEntry *AspNewFloat(AspEngine *, double value);
+AspDataEntry *AspNewRange
+  (AspEngine *, int32_t start, int32_t end, int32_t step);
+AspDataEntry *AspNewUnboundedRange
+  (AspEngine *, int32_t start, int32_t step);
+AspDataEntry *AspNewString(AspEngine *, const char *buffer, size_t size);
+AspDataEntry *AspNewIterator(AspEngine *, AspDataEntry *iterable);
+AspDataEntry *AspNewType(AspEngine *, const AspDataEntry *object);</pre>
+    </blockquote>
+
+    <p>
+    In the syntax citation above, <code><i>Type</i></code> stands for one of
+    the types supported by Asp that does not require any more information to
+    create the object. The actual function names are: <code>AspNewNone</code>,
+    <code>AspNewEllipsis</code>, <code>AspNewTuple</code>,
+    <code>AspNewList</code>, <code>AspNewSet</code>, and
+    <code>AspNewDictionary</code>. Each one returns a pointer to the newly
+    created data entry. In the case of the collection-oriented functions,
+    empty collections are created. Additional functions are provided that
+    accept additional parameter(s) to provide a specific value for the created
+    object.
+    </p>
+
+    <p>
+    Two functions support the creation of range objects:
+    <code>AspNewRange</code> and <code>AspNewUnboundedRange</code>. The
+    <code>AspNewRange</code> accepts <code>start</code>, <code>end</code>, and
+    <code>step</code> parameters. The <code>AspNewUnbounededRange</code>
+    function creates a range object with no specified end, so only
+    <code>start</code> and <code>step</code> parameters are required.
+    </p>
+
+    <p>
+    For <code>AspNewString</code>, a character buffer and size must be
+    provided to initialize the value of the new string object. To create an
+    empty string, specify a size of 0. In this case, <code>buffer</code> is
+    not used, so a null pointer can be passed.
+    </p>
+
+    <p>
+    For <code>AspNewIterator</code>, the iterable object is specified. This
+    may be any of the collection types, including a string, but may also be a
+    range. Use <code>AspNext</code> with the new iterator to iterate through
+    each value. Iterators can also be tested to determine whether they are at
+    their end by converting them to a Boolean value using
+    <code>AspIsTrue</code>. A value of <code>false</code> indicates the
+    iterator has reached its end.
+    </p>
+
+    <p>
+    In the case of the <code>AspNewType</code> function, the type of the
+    passed object is used to determine the value of the new type object.
+    </p>
+
+    <p>
+    It is the responsibility of the application to manage the ownership of the
+    newly created object. Initially, its use count is set to <code>1</code>.
+    If nothing else is done to the object, calling <code>AspUnref</code> on it
+    will cause it to be destroyed. See the section on
+    <a href='#ReferenceCounting'>reference counting</a> for more information.
+    </p>
+
+    <h3>Sequence manipulation</h3>
+
+    <blockquote><pre>
+bool AspTupleAppend
+    (AspEngine *, AspDataEntry *tuple, AspDataEntry *value, bool take);
+bool AspListAppend
+    (AspEngine *, AspDataEntry *list, AspDataEntry *value, bool take);
+bool AspListInsert
+    (AspEngine *, AspDataEntry *list,
+     int index, AspDataEntry *value, bool take);
+bool AspListErase
+    (AspEngine *, AspDataEntry *list, int index);</pre>
+    </blockquote>
+
+    <p>
+    Items can be inserted into sequences or erased from sequences using one of
+    the above functions, each of which returns <code>true</code> to indicate
+    success.
+    </p>
+
+    <p>
+    <code>AspTupleAppend</code> is used to build a tuple. Note that in Asp,
+    tuples are immutable, but in C, a mechanism is required to define the
+    elements of a newly created tuple. An application function must not abuse
+    this routine to modify the contents of a pre-existing tuple. Another
+    function, <code>AspListAppend</code>, is used to add an item to the end of
+    a list. Items can also be inserted at a position other than the end using
+    <code>AspListInsert</code>. This last function accepts an index value
+    which may be negative and works the same way as in element access (see the
+    section on <a href='#CollectionInformation'>collection information</a>).
+    For negative index values, the item is inserted after the indicated
+    position so that the newly inserted item is at the indicated position when
+    the insertion is completed.
+    </p>
+
+    <p>
+    An item can be removed from a list using <code>AspListErase</code>. The
+    index parameter follows the same rules as for element access.
+    </p>
+
+    <p>
+    All the append/insert functions accept a Boolean argument named
+    <code>take</code>. This indicates whether the sequence should take
+    ownership of the passed value entry. If a take value of <code>true</code>
+    is given, the function will call <code>AspUnref</code> to decrement the
+    reference count of the object, obviating the need for the application to
+    perform this operation. This is the normal case and prevents the inserted
+    object from causing a memory leak into the engine's data area. Only if the
+    inserted object is used elsewhere (e.g., inserted into another collection,
+    or returned in <code>*returnValue</code>) should the value of
+    <code>take</code> be set to <code>false</code>.
+    </p>
+
+    <h3>Building strings</h3>
+
+    <blockquote><pre>
+bool AspStringAppend
+    (AspEngine *, AspDataEntry *str,
+     const char *buffer, size_t bufferSize);</pre>
+    </blockquote>
+
+    <p>
+    Like tuples, strings are immutable in Asp, but the application needs a way
+    to build them. So, the <code>AspStringAppend</code> function is provided
+    for that purpose. As with tuples, an application must not abuse the
+    function by modifying a pre-existing string object. Using
+    <code>AspStringAppend</code>, an application can build an Asp string from
+    several smaller parts if desired. The data to be appended is specified in
+    <code>buffer</code> and its length in <code>bufferSize</code>.
+    </p>
+
+    <h3>Set and dictionary manipulation</h3>
+
+    <blockquote><pre>
+bool AspSetInsert
+    (AspEngine *, AspDataEntry *set, AspDataEntry *key, bool take);
+bool AspSetErase
+    (AspEngine *, AspDataEntry *set, AspDataEntry *key);
+bool AspDictionaryInsert
+    (AspEngine *, AspDataEntry *dictionary,
+     AspDataEntry *key, AspDataEntry *value, bool take);
+bool AspDictionaryErase
+    (AspEngine *, AspDataEntry *dictionary, AspDataEntry *key);</pre>
+    </blockquote>
+
+    <p>
+    Inserting objects into sets and dictionaries is accomplished using the
+    <code>AspSetInsert</code> and <code>AspDictionaryInsert</code> functions,
+    respectively. In the case of <code>AspSetInsert</code>, only a key is
+    required, whereas <code>AspDictionaryInsert</code> requires both a key and
+    an associated value. Items can be removed from sets and dictionaries by
+    using <code>AspSetErase</code> and <code>AspDictionaryErase</code>,
+    respecitively. The return value is <code>true</code> if the specified key
+    was found and erased from the collection.
+    </p>
+
+    <p>
+    As with the sequence manipulation functions, the insert functions also
+    take a <code>take</code> argument to indicate whether the collection will
+    assume exclusive ownership of the object(s) being inserted. For
+    <code>AspDictionaryInsert</code>, this applies to both the key and the
+    value, so if the application needs to treat these two objects differently
+    (e.g., the value is used elsewhere but the key is not), then it can take
+    one of two courses of action. It can still specify <code>true</code> for
+    the <code>take</code> argument, and then call <code>AspRef</code> on the
+    object that will be shared. Or the <code>take</code> argument can be set
+    to <code>false</code>, and then <code>AspUnref</code> can be called on the
+    object not being used elsewhere. Either method achieves the same goal of
+    managing use counts to avoid leaks into the engine's data area.
+    </p>
+
+    <h3 id='ReferenceCounting'>Reference counting</h3>
+
+    <blockquote><pre>
+void AspRef(AspEngine *, AspDataEntry *object);
+void AspUnref(AspEngine *, AspDataEntry *object);</pre>
+    </blockquote>
+
+    <p>
+    Several sections above have mentioned reference counting. This section
+    explains the topic in a bit more detail.
+    </p>
+
+    <p>
+    When an object is created, whether by the script's code or through the use
+    of one of the <code>AspNew&hellip;</code> functions, it is represented in
+    the engine's data area as a data entry with an initial use count of 1. The
+    <code>AspRef</code> and <code>AspUnref</code> functions directly
+    manipulate this use count, increasing or decreasing it by 1, respectively.
+    When <code>AspUnref</code> reduces the use count of an object's entry to
+    zero, the entry is immediately freed (i.e., marked as a free entry and
+    added to the free list where it can subsequently be allocated to house
+    another object).
+    </p>
+
+    <p>
+    Normally, the engine's logic manages the reference counts to ensure no
+    objects become orphaned and thus tie up data area entries (a condition
+    called a <q>leak</q>). When an application's C code manipulates objects,
+    it sometimes becomes necessary for it to manually control the use counts.
+    </p>
+
+    <p>
+    The use count of application function arguments is automatically handled
+    by the engine. Likewise, the <code>returnValue</code> parameter is managed
+    by the engine. This requires a bit of a closer look. Upon entry, the value
+    at <code>*returnValue</code> is actually a C null pointer (i.e., it does
+    not point to a <code>None</code> object as one might think). This means
+    that when an application function assigns the pointer of a newly created
+    object to <code>*returnValue</code>, there is no need to first unreference
+    it. In fact, doing so would be an error since there is no object there.
+    When the function returns, the engine checks the value at
+    <code>*returnValue</code>, and if it is a C null pointer, the engine
+    creates a <code>None</code> object and supplies it as the default return
+    value to the calling script<a href='#Note-DefaultReturn'><sup>*</sup></a>.
+    </p>
+
+    <p>
+    It should be noted that if an application causes a data area leak, the
+    condition is not permanent. When the script ends and another one is
+    started, the entire data area is reset, and any entries that contained
+    leaked objects are freed for use when the new script runs. Still, care
+    should be taken not to introduce data entry leaks, as it could lead to an
+    out of data memory condition, causing the script to terminate
+    unnecessarily.
+    </p>
+
+    <blockquote id='Note-DefaultReturn'><sup>*</sup><small>
+    Strictly speaking, this is not an accurate description because the
+    engine's data area contains only one shared <code>None</code> object. So,
+    when a <code>None</code> object is <q>created</q>, the use count of the
+    singleton <code>None</code> is incremented. Unreferencing this shared
+    <code>None</code> object should never cause it to be destroyed, as its use
+    count should never reach zero.
+    </small></blockquote>
+
+    <h3>Argument access</h3>
+
+    <blockquote><pre>
+AspDataEntry *AspArguments(AspEngine *);</pre>
+    </blockquote>
+
+    <p>
+    As mentioned in the section on <a href='#SettingArguments'>setting
+    arguments</a>, an application may provide arguments to a script. These are
+    accessible to the script by accessing the <code>args</code> variable in
+    the <code>sys</code> namespace. If it is necessary for the application to
+    access the arguments, it can obtain access to the argument tuple by
+    calling <code>AspArguments</code>.
+    </p>
+
+    <p>
+    If no external arguments have been supplied, and even if the application
+    does not provide support for external arguments (i.e., it does not call
+    the <code>AspSetArguments</code> or <code>AspSetArgumentsString</code>
+    functions), the object returned by <code>AspArguments</code> will still
+    exist; it will be a tuple containing a single empty string. (The first
+    element always refers to a concatenated string of all the arguments, and
+    the first argument, if present, appears as the second element, index
+    <code>1</code>.)
+    </p>
+
+    <p>
+    If arguments have been supplied, all the elements in the tuple will be
+    strings. It is the job of the application (or the script) to parse the
+    arguments into meaningful values.
+    </p>
+
+    <h3><code>AspContext</code> and <code>AspAgain</code></h3>
+
+    <blockquote><pre>
+void *AspContext(const AspEngine *);
+bool AspAgain(const AspEngine *);</pre>
+    </blockquote>
+
+    <p>
+    When an application calls <code>AspInitialize</code>, one of the arguments
+    that is passed is a pointer to a context area. The purpose of this is to
+    provide an area associated with the script engine instance that contains
+    application-specific data that script-callable application functions can
+    use. If specified, the application should define and allocate a suitable
+    structure to store whatever information will be required. While
+    application functions always have access to global variables, the context
+    area is associated with a specific script engine instance. If multiple
+    script engine instances with the same application specification are being
+    used, per-instance data can be stored in the context area, keeping it
+    separate from that of other instances.
+    </p>
+
+    <p>
+    To gain access to the area from within a script-callable function, use the
+    <code>AspContext</code> function and cast the returned void pointer to the
+    application-defined type for the area. The context area can be used to
+    solve many design issues. It should be noted that the context area is not
+    cleared between script runs, as the engine has no idea of how the area is
+    structured. So, the application must ensure the area is sufficiently reset
+    prior to running a new script. Depending on the application, some data may
+    need to persist between script runs, while other data may need to be reset
+    between runs.
+    </p>
+
+    <p>
+    The next few paragraphs describe a particular issue that is solved by
+    using both the context area and another feature the Asp library supports.
+    </p>
+
+    <p>
+    As mentioned in the sections covering <a href='#EngineControl'>engine
+    control</a> and the <a href='#AspStep'><code>AspStep</code></a> function,
+    the Asp engine executes script instructions one at a time, each
+    instruction taking very little time to execute, thus leaving the
+    application in control of the processor at a high frequency. One of those
+    instructions is the <code>CALL</code> instruction which calls either a
+    script-defined function or an application function. Because script-defined
+    functions are made up of individual instructions, they too behave in such
+    a way as to leave the application in control of the processor on a regular
+    basis. However, in the case of script-callable application functions, the
+    C code of the function could potentially hold on to control of the
+    processor, making it possible that a call to <code>AspStep</code> that
+    executes a <code>CALL</code> instruction could take an indeterminant
+    amount time to complete. For example, an application function that runs a
+    motor through a motion profile and waits for its completion could take an
+    unacceptably long period of time to complete, starving the main control
+    loop of the application of processing cycles.
+    </p>
+
+    <p>
+    To solve this problem, the Asp engine provides two design elements that
+    work together to allow application functions to relinquish processor
+    control (i.e., return) while appearing to block in the script, waiting for
+    completion of their task. The first design element is the context area
+    (discussed above), and the second is a mechanism by which an application
+    function can arrange for re-entry and then determine whether it is being
+    called for the first time or is being re-entered in the context of a
+    previous call.
+    </p>
+
+    <p>
+    The context area is used to store state information to support re-entrant
+    application functions. To make an application function re-entrant, and yet
+    appear as blocking to the calling script, two things must happen. First,
+    the function must return a special value, <code>AspRunResult_Again</code>,
+    on all but the final invocation. This indicates to the engine that the
+    <code>CALL</code> instruction is not yet finished. On the next call to
+    <code>AspStep</code>, the same <code>CALL</code> instruction is executed
+    again, causing the application function to be re-entered. The second thing
+    that must be done is for the application function to check whether it is
+    being called for the first time or as a subsequent re-entry. This is
+    accomplished by calling the <code>AspAgain</code> function, which returns
+    <code>true</code> for a re-entrant call.
+    </p>
+
+    <p>
+    On the initial call into the function (when <code>AspAgain</code> returns
+    <code>false</code>), state information in the context area should be
+    initialized. On re-entrant calls, the state can be queried and/or updated
+    to progress through to the end goal of the function. When the function
+    determines that its task is complete, it should return
+    <code>AspRunResult_OK</code> (or an error value if appropriate) to mark
+    the execution of the <code>CALL</code> instruction complete and allow the
+    engine to move on to the next instruction.
+    </p>
+
+    <p>
+    Note that there is nothing forcing the application to make calls to
+    <code>AspStep</code> if it can otherwise determine that a script-callable
+    function is in an unfinished state and no progress can be made, making it
+    a waste of time to call it. In this situation, the application would have
+    to determine (from the main loop) when a condition sufficient to advance
+    the logic of the script-callable function has occurred, and then resume
+    calling <code>AspStep</code> to allow that logic to advance, updating its
+    state, and possibly finishing its task.
+    </p>
+
+    <p>
+    There are other ways an application can retain control of the processor
+    without using the forgoing technique (e.g., multitasking). However, in
+    designs that depend on a main loop running at a fixed frequency, this
+    mechanism makes running Asp scripts possible without compromising the
+    integrity of the system.
+    </p>
+
+    <h3>AspAssert</h3>
+
+    <blockquote><pre>
+AspRunResult AspAssert(AspEngine *, bool);</pre>
+    </blockquote>
+
+    <p>
+    The implementation of the Asp engine uses the <code>AspAssert</code>
+    function for ensuring certain conditions hold true, causing an error to
+    occur if not. This function is also available for application functions to
+    use. It is like the C <code>assert</code> macro, except that it does not
+    cause the entire application to abort, and it always performs the test,
+    even in non-debug builds. Instead, if the passed argument is
+    <code>false</code> (indicating a failed assertion), it prevents the engine
+    from executing any more instructions, and returns
+    <code>AspRunResult_InternalError</code>. Even if the function does not
+    return the error code (which it should), execution of the script is still
+    eventually halted, and subsequent calls to <code>AspStep</code> return the
+    same error value. If, on the other hand, the argument is
+    <code>true</code>, <code>AspAssert</code> returns
+    <code>AspRunResult_OK</code> and all is well.
+    </p>
+
+    <p>
+    Note that the Asp language includes an <code>assert</code> statement, but
+    its behaviour is slightly different than that of the
+    <code>AspAssert</code> function. On a failed assertion, the
+    <code>assert</code> statement causes an <code>ABORT</code> instruction to
+    execute, which causes <code>AspStep</code> to return
+    <code>AspRunResult_Abort</code> (instead of
+    <code>AspRunResult_InternalError</code>). An application function can
+    replicate this behaviour by testing the condition of interest in an
+    <code>if</code> statement and returning <code>AspRunResult_Abort</code>.
+    </p>
+
+    <h2>Debug library</h2>
+
+    <p>
+    In addition to the Asp engine library, which is linked into an embedded
+    application, the Asp platform also provides a debug library for use on an
+    external machine that can receive run-time information from the embedded
+    application. For Linux environments, the debug library can be linked using
+    <span class='tt'>-laspd</span> on the <span class='tt'>gcc</span> command
+    line. Applicable code should include the <code>&lt;asp-info.h&gt;</code>
+    header.
+    </p>
+
+    <blockquote><pre>
+#include &lt;asp-info.h&gt;</pre>
+    </blockquote>
+    </p>
+
+    <p>
+    The routines in this library make use of the debug information file
+    (<q><span class='tt'>.aspd</span></q>) generated by the compiler. Their
+    primary purposes are (a)&nbsp;translating error codes into human-readable
+    strings, and (b)&nbsp;translating a program counter into the associated
+    script source location, both useful for determining the nature of a script
+    run error. The following sections describe the available routines.
+    </p>
+
+    <p>
+    Note also that the functionality of this library is provided in the
+    <span class='tt'>aspinfo</span> utility. See the
+    <a href='script.html'>Script Writer's Guide</a> for a description.
+    </p>
+
+    <h3>Error code translation</h3>
+
+    <blockquote><pre>
+const char *AspAddCodeResultToString(int result);
+const char *AspRunResultToString(int result);</pre>
+    </blockquote>
+
+    <p>
+    Functions in the Asp engine library return <code>AspAddCodeResult</code>
+    and <code>AspRunResult</code> error codes. The debug library routines
+    <code>AspAddCodeResultToString</code> and
+    <code>AspRunResultToString</code> translate these codes into
+    human-readable strings so that an operator running a script can get a
+    description of errors that occur when a script fails to complete
+    successfully.
+    </p>
+
+    <p>
+    Note that these routines accept integers rather than the specific error
+    type used in the engine library. The reason for this is that the computer
+    that is deciphering debug information is not normally the same machine
+    running the embedded application, and therefore may not have access to the
+    <code>&lt;asp.h&gt;</code> header where these types are defined. As
+    mentioned above, it is necessary for the embedded application to somehow
+    communicate the error codes to the external system prior to translating
+    the codes. How this is done is specific to each application.
+    </p>
+
+    <h3>Source location</h3>
+
+    <blockquote><pre>
+AspSourceInfo *AspLoadSourceInfoFromFile(const char *fileName);
+AspSourceInfo *AspLoadSourceInfo(const char *data, size_t size);
+void AspUnloadSourceInfo(AspSourceInfo *);
+AspSourceLocation AspGetSourceLocation(const AspSourceInfo *, size_t pc);
+const char *AspGetSourceFileName(const AspSourceInfo *, unsigned index);</pre>
+    </blockquote>
+
+    <p>
+    When a script ends abnormally, the engine library provides a means of
+    obtaining the program counter which identifies the location of the
+    instruction that caused the error. Once the value of the program counter
+    is communicated to the external system, and assuming the debug information
+    file that matches the script is available, the debug library can be used
+    to translate the program counter value into a source location consisting
+    of file name, line number, and column.
+    </p>
+
+    <p>
+    The <code>AspLoadSourceInfoFromFile</code> routine is used to load the
+    debug information file (<q><span class='tt'>.aspd</span></q>). It creates
+    an <code>AspSourceInfo</code> structure instance which is used in
+    subsequent calls to other functions. It accepts a single argument
+    specifying the name of the debug information file. If the contents of the
+    file are already in memory, the <code>AspLoadSourceInfo</code> function
+    may be used to load the content instead. When the source information
+    structure is no longer needed, it should be deallocated using
+    <code>AspUnloadSourceInfo</code>, which takes a pointer to the structure
+    as its only argument. It should be noted that, unlike the engine library,
+    these debug library routines make use of dynamic memory allocation (i.e.,
+    <code>malloc</code> and <code>free</code>) to allocate enough memory for
+    the content. Also, when using <code>AspLoadSourceInfo</code>, the source
+    data is shared and must remain in memory until after the call to
+    <code>AspUnloadSourceInfo</code>.
+    </p>
+
+    <p>
+    Once an <code>AspSourceInfo</code> structure instance as been created as
+    described above, a program counter value may be translated using the
+    <code>AspGetSourceLocation</code> function. This function returns an
+    <code>AspSourceLocation</code> structure instance, which is defined as
+    follows.
+    </p>
+
+    <blockquote><pre>
+typedef struct AspSourceLocation
+{
+    const char *fileName;
+    unsigned line, column;
+} AspSourceLocation;</pre>
+    </blockquote>
+
+    <p>
+    In the event an invalid program counter is passed, the returned structure
+    will have its fileName member set to the null pointer. Otherwise, the name
+    of the source file and the applicable line and column of script source
+    code will be populated.
+    </p>
+
+    <p>
+    The <code>AspGetSourceLocation</code> function may also be used during the
+    execution of a script, provided the embedded application can transmit the
+    current program counter frequently enough. This technique may be used to
+    trace the execution of a script, providing real-time source location
+    information to an operator. In this case, it may be useful to obtain a
+    list of source file names prior to execution so that they may be preloaded
+    (e.g., if they are going to be displayed, with the currently executing
+    line highlighted). The names may be obtained by calling the
+    <code>AppGetSourceFileName</code> function with a zero-based index.
+    Repeatedly calling this routine with increasing values of the index
+    parameter until it returns a null pointer will return the names of all the
+    source files comprising the script.
+    </p>
+
+    <h2>More information</h2>
+
+    For the curious, there is the <a href='internals.html'>Internals</a>
+    document, which describes how Asp works under the hood. It describes
+    the engine's instruction set, the layout of data area entries, and how the
+    compiler generates code, among other topics.
+
+    <hr>
+
+  </body>
+
+</html>
