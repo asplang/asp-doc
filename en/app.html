@@ -262,7 +262,7 @@ PI = 3.1415926535</pre>
     </p>
 
     <p>
-    Finally, Asp defines several built-in functions, but to use them, they
+    Asp defines several built-in functions, but to use them, they
     must be defined in the application's specification file. To facilitate
     this, application specification source files for these built-in functions
     are provided and may be included in the main specification using the
@@ -278,12 +278,31 @@ include math</pre>
 
     <p>
     The names of the associated C functions for these built-ins all start with
-    <q><code>Asp_</code></q>, so applications should avoid naming their own
+    <q><code>AspLib_</code></q>, so applications should avoid naming their own
     variables or functions with this prefix. The include files are available
     in a common include directory. On Linux systems, this is typically
     <span class='tt'>/usr/include/asps</span>. The built-in functions are
     described in the <a href='script.html'>Script Writer's Guide</a>.
     </p>
+
+    <p>
+    It is also possible to build your own libraries of script-callable
+    functions. When writing the specification, the first line in the
+    specification file should be the <code>lib</code> statement, which
+    identifies the functions as being delivered in a library instead of being
+    compiled directly in the application. The only time this truly matters is
+    when using shared libraries, especially with Windows (i.e., DLLs).
+    Specifying <code>lib</code> triggers <span class='tt'>aspg</span> to
+    decorate the function declarations with the <code>ASP_LIB_API</code> macro,
+    which expands to the linkage specification required for the applicable
+    usage (i.e., import vs. export in Windows). If specified, the
+    <code>lib</code> statement must be the first statement in the
+    <q><span class='tt'>.asps</span></q> file.
+    </p>
+
+    <blockquote><pre>
+lib</pre>
+    </blockquote>
 
     <p>
     As with Asp's syntax, comments are permitted. Also, line continuations may
