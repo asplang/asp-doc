@@ -420,9 +420,12 @@ def delete_files_by_time \
     <blockquote><pre>
 AspRunResult AspInitialize
     (AspEngine *,
-     void *code, size_t codeSize,
-     void *data, size_t dataSize,
-     const AspAppSpec *, void *context);</pre>
+     void *code, size_t codeSize, void *data, size_t dataSize,
+     const AspAppSpec *, void *context);
+AspRunResult AspInitializeEx
+    (AspEngine *,
+     void *code, size_t codeSize, void *data, size_t dataSize,
+     const AspAppSpec *, void *context, AspFloatConverter);</pre>
     </blockquote>
 
     <p>
@@ -431,14 +434,36 @@ AspRunResult AspInitialize
     listed parameters. The application is responsible for allocating memory
     for the <code>AspEngine</code> instance (very small), the code and data
     blocks, and, if used, the context area (more on script contexts in a
-    subsequent). If the context is not being used, pass a null pointer. The
-    required <code>AspAppSpec</code> pointer should point to the global
+    subsequent section). If the context is not being used, pass a null pointer.
+    The required <code>AspAppSpec</code> pointer should point to the global
     instance defined in the generated application specification C source file
     and declared in the generated C header. Its name is
     <code>AspAppSpec_<i>app</i></code>, where <code><i>app</i></code> is the
     base name of the application specification file name. The
     <code>AspAppSpec</code> instance is treated as read-only and can therefore
     be shared between multiple engine instances if desired.
+    </p>
+
+    <p>
+    In the rare case that the target platform does not support the
+    IEEE&nbsp;754 binary64 (i.e., double-precision) floating-point format, a
+    second version of the initialization function, <code>AspInitializeEx</code>
+    is provided which accepts an additional parameter of type
+    <code>AspFloatConverter</code>, a function pointer type as defined here.
+    </p>
+
+    <blockquote><pre>
+typedef double (*AspFloatConverter)(uint8_t ieee754_binary64[8]);</pre>
+    </blockquote>
+
+    <p>
+    Conversion is required because floating-point values in script binaries and
+    application specification files are encoded using the standard format.
+    If used, the supplied function must convert the 8-byte IEEE&nbsp;754
+    binary64 value into the native floating-point format. The input value is
+    supplied as an 8-byte array and will already be in the native byte-order.
+    The return value is a <code>double</code> in the native format, regardless
+    of whether its size is 8 bytes or not.
     </p>
 
     <p>
