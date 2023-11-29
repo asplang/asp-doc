@@ -92,19 +92,20 @@
 
     <p>
     Whether it is run on a target device or with the standalone application,
-    an Asp script must first be compiled using the Asp script compiler, aspc.
+    an Asp script must first be compiled using the Asp script compiler,
+    <span class='tt'>aspc</span>.
     </p>
 
     <p>
     The compiler requires the user to specify the name of the script source
-    (<q>.asp</q>) and an application specification file
+    (<q><span class='tt'>.asp</span></q>) and an application specification file
     (<q><span class='tt'>.aspec</span></q>). The application specification
     file defines the functions and variables in the application that are
     available to the script and is typically provided by the developer of
     the device on which the script will run. In the case of the standalone
     environment, it is typically installed along with the compiler in a
     well-known location (e.g.,
-    <span class='tt'>/usr/etc/asp/standalone.aspec</span></span>).
+    <span class='tt'>/usr/etc/asp/standalone.aspec</span>).
     </p>
 
     <p>
@@ -112,11 +113,11 @@
     the <span class='tt'>ASP_SPEC_FILE</span> environment variable. If
     <span class='tt'>ASP_SPEC_FILE</span> is not defined, the application
     specification file may be specified on the command line. If it is not
-    defined in either way, the compiler looks for a file named app.aspec in
-    the current working directory (which, depending on your operating system,
-    can be set up as a link to the real file if desired). The following
-    command assumes that the application specification file is defined in
-    one of the two ways described.
+    defined in either way, the compiler looks for a file named
+    <span class='tt'>app.aspec</span> in the current working directory (which,
+    depending on your operating system, can be set up as a link to the real
+    file if desired). The following command assumes that the application
+    specification file is defined in one of the two ways described.
     </p>
 
     <blockquote>
@@ -172,10 +173,13 @@
     </ol>
 
     <p>
-    If successful, the compiler generates an binary script executable with a
-    <q><span class='tt'>.aspe</span></q> suffix. This is the file that will
-    run in the Asp engine, or if compiled using the standalone spec, the
-    standalone application.
+    If successful, the compiler generates a binary script executable with a
+    <q><span class='tt'>.aspe</span></q> suffix in the current working
+    directory. This is the file that will run in the Asp engine, or if compiled
+    using the standalone spec, the standalone application. The output can be
+    redirected to files of different names, or to a completely different
+    directory, using the <span class='tt'>-o</span> option. More information
+    may be obtained by running <code>aspc</code> with no arguments.
     </p>
 
     <p>

@@ -372,12 +372,20 @@ def delete_files_by_time \
       data area.
       </li>
       <li>
-      Call <code>AspAddCode</code> one or more times to load script executable
-      code into the code area.
-      </li>
-      <li>
-      When all the code has been added, call <code>AspSeal</code> to seal off
-      the code and perform final checks prior to execution.
+      Identify the code to run in the engine. This can be done in one of two
+      ways.
+        <ol type='a'>
+          <li>
+          Call <code>AspAddCode</code> one or more times to load script
+          executable code into the code area, and then, when all the code has
+          been added, call <code>AspSeal</code> to seal off the code and
+          perform final checks prior to execution.
+          </li>
+          <li>
+          Make a single call to <code>AspSealCode</code> to identify the
+          location and size of an external block of script executable code.
+          </li>
+        </ol>
       </li>
       <li>
       Optionally add script arguments via <code>AspSetArguments</code> or
@@ -410,7 +418,7 @@ def delete_files_by_time \
     <p>
     The following functions prepare the engine to execute a script:
     <code>AspInitialize</code>, <code>AspAddCode</code>, <code>AspSeal</code>,
-    <code>AspSetArguments</code> (and the related
+    <code>AspSealCode</code>, <code>AspSetArguments</code> (and the related
     <code>AspSetArgumentsString</code>), <code>AspRestart</code>, and
     <code>AspReset</code>.
     </p>
@@ -442,6 +450,14 @@ AspRunResult AspInitializeEx
     base name of the application specification file name. The
     <code>AspAppSpec</code> instance is treated as read-only and can therefore
     be shared between multiple engine instances if desired.
+    </p>
+
+    <p>
+    As discussed in the next section, it is possible that the code area will
+    not be needed (e.g., when all scripts that will be run already reside in
+    the application's memory). In these special cases, the <code>code</code>
+    and <code>codeSize</code> parameters may be set to a null pointer and zero,
+    respectively.
     </p>
 
     <p>
@@ -483,12 +499,15 @@ typedef double (*AspFloatConverter)(uint8_t ieee754_binary64[8]);</pre>
     the data area byte size.
     </p>
 
-    <h4><code>AspAddCode</code> and <code>AspSeal</code></h4>
+    <h4><code>AspAddCode</code>, <code>AspSeal</code>, and
+        <code>AspSealCode</code></h4>
 
     <blockquote><pre>
 AspAddCodeResult AspAddCode
     (AspEngine *, const void *code, size_t codeSize);
-AspAddCodeResult AspSeal(AspEngine *);</pre>
+AspAddCodeResult AspSeal(AspEngine *);
+AspAddCodeResult AspSealCode
+    (AspEngine *, const void *code, size_t codeSize);</pre>
     </blockquote>
 
     <p>
@@ -496,18 +515,33 @@ AspAddCodeResult AspSeal(AspEngine *);</pre>
     can be loaded in blocks, if more convenient for the application, by making
     repeated calls to <code>AspAddCode</code>. Each call appends the specified
     block to the end of any code already in the engine. Once all the code is
-    loaded, the <code>AspSeal</code> must be called to complete the loading
-    process.
+    loaded, the <code>AspSeal</code> function must be called to complete the
+    loading process.
     </p>
 
     <p>
-    Both functions return an <code>AspAddCodeResult</code> enumerated value.
+    If all the code of a script executable is already in a contiguous area of
+    memory, instead of copying it into the engine's code area, it may be used
+    in place by identifying its location with <code>AspSealCode</code>. In this
+    special case, the identified code (i.e., the code pointed to by the
+    <code>code</code> parameter and with a size given by <code>codeSize</code>)
+    includes the entire script executable's content, including the header
+    fields. This is useful in cases where predefined scripts are included in
+    the code of the application. If an application runs only predefined
+    scripts, the engine's code area may be omitted altogether by specifying a
+    null pointer for it in the call to <code>AspInitialize</code> and giving it
+    a size of zero.
+    </p>
+
+    <p>
+    These functions return an <code>AspAddCodeResult</code> enumerated value.
     Several things can go wrong during the loading process; details of the
     error codes are given below. If all the calls to <code>AspAddCode</code>
-    and <code>AspSeal</code> return <code>AspAddCodeResult_OK</code>, then the
-    script is ready to run. See Execution Control section for functions that
-    control script execution. Additional functions applicable prior to
-    execution are discussed below.
+    and <code>AspSeal</code> (or the single call to <code>AspSealCode</code>)
+    return <code>AspAddCodeResult_OK</code>, then the script is ready to run.
+    See the Execution Control section for functions that control script
+    execution. Additional functions applicable prior to execution are discussed
+    below.
     </p>
 
     <table id='AspAddCodeResult'>
@@ -554,15 +588,18 @@ AspAddCodeResult AspSeal(AspEngine *);</pre>
         <td><code>OutOfCodeMemory</code></td>
         <td>
         The amount of code space is insufficient to load the amount of code
-        contained in the script binary file.
+        contained in the script binary file. This condition cannot happen when
+        using <code>AspSealCode</code>, as the space where the script's
+        executable code resides is outside the engine's code area.
         </td>
       <tr>
       <tr>
         <td><code>InvalidState</code></td>
         <td>
-        <code>AspAddCode</code> or <code>AspSeal</code> has been called when
-        the engine is in a state where calls to these functions are not
-        expected, for example, when a script is running.
+        <code>AspAddCode</code>, <code>AspSeal</code>, or
+        <code>AspSealCode</code> has been called when the engine is in a state
+        where calls to these functions are not expected, for example, when a
+        script is running.
         </td>
       <tr>
     </table>
@@ -934,7 +971,7 @@ void AspCodeVersion(const AspEngine *, uint8_t version[4]);</pre>
     version checking. For example, the major and minor components of the
     version of the code generated by the compiler must match those of the
     engine running the code. A mismatch is one of the reasons that
-    <code>AspAddCode</code> can fail.
+    <code>AspAddCode</code> (or <code>AspSealCode</code>) can fail.
     </p>
 
     <p>
