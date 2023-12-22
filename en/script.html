@@ -337,11 +337,17 @@ $ ls -l hello.*
     Also, the absence of explicit file support is because many embedded
     applications to not have a file system. However, there is nothing stopping
     an application from adding the necessary functions to support file
-    operations if the application itself supports files. Asp does not support
-    a special file type, but files can be identified with, for example,
-    integer file handles, as is done with the POSIX <code>open</code>,
-    <code>read</code>, <code>write</code>, <code>ioctl</code>, and
-    <code>close</code> functions.
+    operations if the application itself supports files. While Asp does not
+    explicitly support a special file type, it does support custom application
+    types that can serve this kind of purpose. Scripts cannot directly access
+    the content of application type objects, but they can assign them and
+    otherwise pass them around as opaque objects, and of course, pass them into
+    application functions that can interpret them accordingly. For example,
+    an application-specific object could represent an integer file handle, as
+    is used with the POSIX <code>open</code>, <code>read</code>,
+    <code>write</code>, <code>ioctl</code>, and <code>close</code> functions.
+    The integer value itself would be accessible to application functions, but
+    not to script code.
     </p>
 
     <h3>Syntax conventions</h3>
@@ -403,6 +409,9 @@ $ ls -l hello.*
       </li>
       <li>
       Module
+      </li>
+      <li>
+      Application object
       </li>
       <li>
       Type
@@ -646,6 +655,23 @@ d2 = {'one': 1, 'two': 2, 'three': 3} # a dictionary with 3 kv pairs</pre>
     or global scope, the system module is automatically searched.
     </p>
 
+    <h4>Application objects</h4>
+
+    <p>
+    Application functions can create and return objects that only the
+    application knows how to access. To scripts, these objects are opaque.
+    Their only use is to pass them back to other application functions. Within
+    a script, application objects may be assigned to variables, grouped into
+    collections, compared for equality (but not compared relationally), and
+    even used as keys for sets and dictionaries (because they are immutable).
+    Yet, their contents cannot be examined by a script.
+    </p>
+
+    <p>
+    More information about application objects may be found in the
+    <a href='app.html'>Application Developer's Guide</a>.
+    </p>
+
     <h4>Types</h4>
 
     <p>
@@ -823,6 +849,7 @@ d2 = {'one': 1, 'two': 2, 'three': 3} # a dictionary with 3 kv pairs</pre>
       <li>Iterator</li>
       <li>Function</li>
       <li>Module</li>
+      <li>Application object</li>
       <li>Type</li>
     </ol>
 
@@ -836,10 +863,10 @@ d2 = {'one': 1, 'two': 2, 'three': 3} # a dictionary with 3 kv pairs</pre>
     from first to last. Sets and dictionaries are also compared
     lexicographically by key first, then for dictionaries, value. For all
     collections, comparison is defined recursively when the collections
-    contain other collections. The sort order of iterators, functions,
-    and modules is somewhat obscure, but is guaranteed to be well-defined.
-    And, of course, for type objects, the order of the types listed above
-    applies.
+    contain other collections. The sort order of iterators, functions, modules,
+    and application objects is somewhat obscure, but is guaranteed to be
+    well-defined. And, of course, for type objects, the order of the types
+    listed above applies.
     </p>
 
     <p>

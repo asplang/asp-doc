@@ -36,7 +36,7 @@
     The Asp scripting platform consists of a script compiler, an application
     specification generator (used to describe functions with the application
     that scripts can call), and a script execution engine, provided as a
-    library. 
+    library.
     </p>
 
     <p>
@@ -140,12 +140,13 @@
 
     <p>
     Data memory is divided up into fixed-sized slots called data entries. Each
-    entry occupies 16 bytes and holds either four 28&#8209;bit words, an
-    integer or floating-point value, or for string fragment entries, up to 14
-    characters of string data. The type of each entry, <code>T</code>,
+    entry occupies 16 bytes and can hold four 28&#8209;bit words, an integer or
+    floating-point value, or for string fragment entries, up to 14 characters
+    of string data. Other arrangements are used for special data types,
+    particularly application objects. The type of each entry, <code>T</code>,
     determines the layout used. The structure definition produces a different
-    layout of the 28&#8209;bit words depending on whether the target machine
-    is big-endian or little-endian. It looks like this.
+    layout of the 28&#8209;bit words depending on whether the target machine is
+    big-endian or little-endian. It looks like this.
     </p>
 
     <table class='fixed'>
@@ -167,7 +168,7 @@
         <td class='fixed' colspan='2' style='width: 2em;'>13</td>
         <td class='fixed' colspan='2' style='width: 2em;'>14</td>
         <td class='fixed' colspan='2' style='width: 2em;'>15</td>
-      </tr> 
+      </tr>
       <tr>
         <td class='fixed' style='text-align: right;'>BE Word Layout:</td>
         <td class='fixed' style='width: 1em;'><code>B</code></td>
@@ -216,7 +217,7 @@
         <td class='fixed' colspan='2' style='width: 2em;'><code>T</code></td>
       </tr>
       <tr>
-        <td class='fixed' style='text-align: right;'>Integer Layout:</td>
+        <td class='fixed' style='text-align: right;'>Integer Entry:</td>
         <td class='fixed' colspan='8' style='width: 8em;'>Integer</td>
         <td class='fixed' colspan='22'
           style='width: 22em; background-color: LightGrey;'>
@@ -224,7 +225,7 @@
         <td class='fixed' colspan='2' style='width: 2em;'><code>T</code></td>
       </tr>
       <tr>
-        <td class='fixed' style='text-align: right;'>Float Layout:</td>
+        <td class='fixed' style='text-align: right;'>Float Entry:</td>
         <td class='fixed' colspan='16' style='width: 16em;'>
         Double-precision float
         </td>
@@ -234,7 +235,7 @@
         <td class='fixed' colspan='2' style='width: 2em;'><code>T</code></td>
       </tr>
       <tr>
-        <td class='fixed' style='text-align: right;'>Byte address:</td>
+        <td class='fixed' style='text-align: right;'>String Fragment:</td>
         <td class='fixed' colspan='2' style='width: 2em;'>
         <code>C</code>
         </td>
@@ -283,7 +284,75 @@
         <td class='fixed' colspan='2' style='width: 2em;'>
         <code>T</code>
         </td>
-      </tr> 
+      </tr>
+      <tr>
+        <td class='fixed' style='text-align: right;'>
+        App Object (32&#8209;bit):</td>
+        <td class='fixed' colspan='8' style='width: 8em;'>
+        <code>FP</code>
+        </td>
+        <td class='fixed' colspan='8' style='width: 8em;'>
+        <code>I</code> / <code>P</code>
+        </td>
+        <td class='fixed' colspan='8'
+          style='width: 8em; background-color: LightGrey;'>
+        </td>
+        <td class='fixed' colspan='4' style='width: 4em;'>
+        <code>H6</code>
+        </td>
+        <td class='fixed' colspan='2'
+          style='width: 2em; background-color: LightGrey;'>
+        </td>
+        <td class='fixed' colspan='2' style='width: 2em;'><code>T</code></td>
+      </tr>
+      <tr>
+        <td class='fixed' style='text-align: right;'>
+        App Object (64&#8209;bit):</td>
+        <td class='fixed' colspan='16' style='width: 16em;'>
+        <code>FP</code>
+        </td>
+        <td class='fixed' colspan='14'
+          style='width: 14em; background-color: LightGrey;'>
+        </td>
+        <td class='fixed' colspan='2' style='width: 2em;'><code>T</code></td>
+      </tr>
+      <tr>
+        <td class='fixed' style='text-align: right;'>
+        App Integer Object Info (64&#8209;bit):</td>
+        <td class='fixed' colspan='8'
+          style='width: 8em; background-color: LightGrey;'>
+        </td>
+        <td class='fixed' colspan='8' style='width: 8em;'>
+        <code>I</code>
+        </td>
+        <td class='fixed' colspan='8'
+          style='width: 8em; background-color: LightGrey;'>
+        </td>
+        <td class='fixed' colspan='4' style='width: 4em;'>
+        <code>H6</code>
+        </td>
+        <td class='fixed' colspan='2'
+          style='width: 2em; background-color: LightGrey;'>
+        </td>
+        <td class='fixed' colspan='2' style='width: 2em;'><code>T</code></td>
+      </tr>
+      <tr>
+        <td class='fixed' style='text-align: right;'>
+        App Pointer Object Info (64&#8209;bit):</td>
+        <td class='fixed' colspan='16' style='width: 16em;'>
+        <code>P</code>
+        </td>
+        <td class='fixed' colspan='8'
+          style='width: 8em; background-color: LightGrey;'>
+        </td>
+        <td class='fixed' colspan='4' style='width: 4em;'>
+        <code>H6</code>
+        </td>
+        <td class='fixed' colspan='2'
+          style='width: 2em; background-color: LightGrey;'>
+        </td>
+        <td class='fixed' colspan='2' style='width: 2em;'><code>T</code></td>
+      </tr>
     </table>
 
     <p>
@@ -317,6 +386,18 @@
     </p>
 
     <p>
+    Application objects take one or two entries, depending on the platform.
+    On 32&#8209;bit platforms, a single entry contains a function pointer
+    (<code>FP</code>) that points to an object destruction function, a
+    32&#8209;bit signed integer (<code>I</code>) or object pointer
+    (<code>P</code>), depending on the type of the application object, and
+    a signed 16&#8209;bit application object type identifier in the
+    <code>H6</code> field. On 64&#8209;bit platforms, these fields are spread
+    over two entries due to the size of the pointer fields. In this case, the
+    primary entry uses word 3 to refer to the secondary entry.
+    </p>
+
+    <p>
     A data entry can represent either an object or an internal entry. Objects
     are the entries that scripts can refer to directly, whereas internal
     entries are used by the engine to implement internal structures. The main
@@ -330,7 +411,7 @@
       <tr>
         <th rowspan='2'>Type name</th>
         <th rowspan='2'>Type value</th>
-        <th colspan='9'>Fields used</th>
+        <th colspan='12'>Fields used</th>
       </tr>
       <tr>
         <th class='vertical'>Flags (<code>B</code>)</th>
@@ -342,96 +423,118 @@
         <th class='vertical'>Float</th>
         <th class='vertical'>Count (<code>C</code>)</th>
         <th class='vertical'>String (<code>S*</code>)</th>
+        <th class='vertical'>Callback (<code>CB</code>)</th>
+        <th class='vertical'>Integer Value (<code>I</code>)</th>
+        <th class='vertical'>Value Pointer (<code>P</code>)</th>
       </tr>
       <tr>
         <td>None</td>
         <td style='text-align: center;'><code>0x00</code></td><td></td>
         <td></td><td></td><td>&check;</td><td></td>
         <td></td><td></td><td></td><td>&nbsp;</td>
+        <td></td><td></td><td></td>
       </tr>
       <tr>
         <td>Ellipsis</td>
         <td style='text-align: center;'><code>0x01</code></td><td></td>
         <td></td><td></td><td>&check;</td><td></td>
-        <td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       <tr>
         <td>Boolean</td>
         <td style='text-align: center;'><code>0x02</code></td><td>1</td>
         <td></td><td></td><td>&check;</td><td></td>
-        <td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       <tr>
         <td>Integer</td>
         <td style='text-align: center;'><code>0x03</code></td><td></td>
         <td></td><td></td><td>&check;</td><td></td>
         <td>&check;</td><td></td><td></td><td></td>
+        <td></td><td></td><td></td>
       </tr>
       <tr>
         <td>Float</td>
         <td style='text-align: center;'><code>0x04</code></td><td></td>
         <td></td><td></td><td>&check;</td><td></td>
         <td></td><td>&check;</td><td></td><td></td>
+        <td></td><td></td><td></td>
       </tr>
       <tr>
         <td>Range</td>
         <td style='text-align: center;'><code>0x07</code></td><td>3</td>
         <td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td>
-        <td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       <tr>
         <td>String</td>
         <td style='text-align: center;'><code>0x08</code></td><td></td>
         <td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td>
-        <td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       <tr>
         <td>Tuple</td>
         <td style='text-align: center;'><code>0x09</code></td><td></td>
         <td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td>
-        <td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       <tr>
         <td>List</td>
         <td style='text-align: center;'><code>0x0A</code></td><td></td>
         <td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td>
-        <td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       <tr>
         <td>Set</td>
         <td style='text-align: center;'><code>0x0B</code></td><td></td>
         <td>&check;</td><td>&check;</td><td>&check;</td><td></td>
-        <td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       <tr>
         <td>Dictionary</td>
         <td style='text-align: center;'><code>0x0D</code></td><td></td>
         <td>&check;</td><td>&check;</td><td>&check;</td><td></td>
-        <td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       <tr>
         <td>Iterator</td>
         <td style='text-align: center;'><code>0x0E</code></td><td>1</td>
         <td>&check;</td><td>&check;</td><td>&check;</td><td></td>
-        <td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       <tr>
         <td>Function</td>
         <td style='text-align: center;'><code>0x0F</code></td><td>1</td>
         <td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td>
-        <td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       <tr>
         <td>Module</td>
         <td style='text-align: center;'><code>0x10</code></td><td>1</td>
         <td>&check;</td><td>&check;</td><td>&check;</td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>App Object (32&#8209;bit)</td>
+        <td style='text-align: center;' rowspan='2'>
+        <code>0x1A</code>, <code>0x1B</code></td><td></td>
+        <td></td><td></td><td>&check;</td><td></td>
         <td></td><td></td><td></td><td></td>
+        <td>&check;</td><td>&check;</td><td>&check;</td>
+      </tr>
+      <tr>
+        <td>App Object (64&#8209;bit)</td>
+        <td></td>
+        <td></td><td></td><td>&check;</td><td>&check;</td>
+        <td></td><td></td><td></td><td></td>
+        <td>&check;</td><td></td><td></td>
       </tr>
       <tr>
         <td>Type</td>
         <td style='text-align: center;'><code>0x1F</code></td><td></td>
         <td></td><td></td><td>&check;</td><td></td>
         <td></td><td></td><td>&check;</td><td></td>
+        <td></td><td></td><td></td>
       </tr>
     </table>
 
@@ -447,7 +550,7 @@
       <tr>
         <th rowspan='2'>Type name</th>
         <th rowspan='2'>Type value</th>
-        <th colspan='9'>Fields used</th>
+        <th colspan='12'>Fields used</th>
       </tr>
       <tr>
         <th class='vertical'>Flags (<code>B</code>)</th>
@@ -459,101 +562,116 @@
         <th class='vertical'>Float</th>
         <th class='vertical'>Count (<code>C</code>)</th>
         <th class='vertical'>String (<code>S*</code>)</th>
+        <th class='vertical'>Callback (<code>CB</code>)</th>
+        <th class='vertical'>Integer Value (<code>I</code>)</th>
+        <th class='vertical'>Value Pointer (<code>P</code>)</th>
       </tr>
         <td>Code Address</td>
         <td style='text-align: center;'><code>0x40</code></td><td></td>
         <td>&check;</td><td></td><td></td><td></td>
         <td>&nbsp;</td><td>&nbsp;</td><td></td><td></td>
+        <td>&nbsp;</td><td></td><td></td>
       </tr>
       <tr>
         <td>Stack Entry</td>
         <td style='text-align: center;'><code>0x50</code></td><td>2</td>
         <td>&check;</td><td>&check;</td><td>&check;</td><td></td>
-        <td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       <tr>
         <td>Frame</td>
         <td style='text-align: center;'><code>0x52</code></td><td></td>
         <td>&check;</td><td>&check;</td><td>&check;</td><td></td>
-        <td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       <tr>
         <td>Element</td>
         <td style='text-align: center;'><code>0x62</code></td><td></td>
         <td>&check;</td><td>&check;</td><td>&check;</td><td></td>
-        <td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       <tr>
         <td>String Fragment</td>
         <td style='text-align: center;'><code>0x64</code></td><td></td>
         <td></td><td></td><td></td><td></td>
         <td></td><td></td><td>&check;</td><td>&check;</td>
+        <td></td><td></td><td></td>
       </tr>
       <tr>
         <td>Key/Value Pair</td>
         <td style='text-align: center;'><code>0x66</code></td><td></td>
         <td></td><td>&check;</td><td>&check;</td><td></td>
-        <td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       <tr>
         <td>Namespace</td>
         <td style='text-align: center;'><code>0x70</code></td><td>3</td>
         <td>&check;</td><td>&check;</td><td></td><td></td>
-        <td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       <tr>
         <td>Set Node</td>
         <td style='text-align: center;'><code>0x74</code></td><td>1</td>
         <td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td>
-        <td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       <tr>
         <td>Dictionary Node</td>
         <td style='text-align: center;'><code>0x78</code></td><td>1</td>
         <td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td>
-        <td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       <tr>
         <td>Namespace Node</td>
         <td style='text-align: center;'><code>0x7C</code></td><td>1</td>
         <td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td>
-        <td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       <tr>
         <td>Tree Links Node</td>
         <td style='text-align: center;'><code>0x7D</code></td><td></td>
         <td></td><td>&check;</td><td>&check;</td><td></td>
-        <td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       <tr>
         <td>Parameter</td>
         <td style='text-align: center;'><code>0x80</code></td><td>2</td>
         <td>&check;</td><td>&check;</td><td></td><td></td>
-        <td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       <tr>
         <td>Parameter List</td>
         <td style='text-align: center;'><code>0x81</code></td><td></td>
         <td>&check;</td><td>&check;</td><td></td><td>&check;</td>
-        <td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       <tr>
         <td>Argument</td>
         <td style='text-align: center;'><code>0x82</code></td><td>2</td>
         <td>&check;</td><td>&check;</td><td></td><td></td>
-        <td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       <tr>
         <td>Argument List</td>
         <td style='text-align: center;'><code>0x83</code></td><td></td>
         <td>&check;</td><td>&check;</td><td></td><td>&check;</td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>App Object Info (64&#8209;bit)</td>
+        <td style='text-align: center;'>
+        <code>0xAA</code>, <code>0xAB</code>
+        </td>
+        <td></td>
         <td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td>
+        <td></td><td>&check;</td><td>&check;</td>
       </tr>
       <tr>
         <td>Free Entry</td>
         <td style='text-align: center;'><code>0xFF</code></td><td></td>
         <td>&check;</td><td></td><td></td><td></td>
-        <td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
     </table>
 
@@ -572,9 +690,16 @@
     As mentioned above, objects have a reference count, which is always stored
     in word 2 of the data entry. When an object is created, the count is set
     to 1. The <code>AspRef</code> and <code>AspUnref</code> routines
-    (<span class='tt'>ref.c</sna>) are used to increment and decrement the use
+    (<span class='tt'>ref.c</span>) are used to increment and decrement the use
     count, respectively. When an object's use count drops to zero, the entry
     is freed, changing its type to Free Entry and adding it to the free list.
+    </p>
+
+    <p>
+    For application objects, their destructor functions is called prior to
+    freeing the entry. The object's type and value (integer or pointer) is
+    passed to the destructor so that the application can locate and deal with
+    its destruction.
     </p>
 
     <p>
@@ -1297,7 +1422,7 @@
         <td>Empty parameter list.</td>
       </tr>
     </table>
-    
+
     <p>
     Finally, there is one instruction, <code>POP</code>, that pops a single
     value off the stack and decrements its use count.
@@ -1417,7 +1542,11 @@
     numeric values is straightforward. Sequences may be compared, and such
     comparisons are performed depth first. See the section on
     <a href='#RecursionAvoidance'>recursion avoidance</a> for a description of
-    how recursion is avoided in the implementation.
+    how recursion is avoided in the implementation. If a floating-point
+    <code>NaN</code> value is encountered during sequence comparison,
+    comparison is cut short and the standard comparison involving
+    <code>NaN</code>s is returned. Note that <code>NaN</code> comparison is
+    nonintuitive, yet standardized.
     </p>
 
     <p>
@@ -2031,7 +2160,19 @@
     defined in <span class='tt'>compare.c</span>. This type of comparison is
     different than that used by the relational operators and defines an order
     among all types of immutable objects (i.e., objects that can be used as
-    keys).
+    keys). Objects of different types are sorted by their type. Within each
+    type, most objects are compared as they would be with normal relational
+    comparison. However, of particular interest is the treatment of
+    floating-point <code>NaN</code> values, since their comparison results are
+    non-intuitive. When one or both values in a floating-point key comparison
+    are <code>NaN</code>, instead of performing the floating-point comparison,
+    the two values are compared as the equivalent sized integers, or, on some
+    platforms, as fixed-length byte arrays (after conversion to big-endian byte
+    order) to avoid the ambiguity that would otherwise arise from the standard
+    comparison. Other differences exist for the sake of efficiency. For
+    example, shorter sequences are ordered before longer sequences so that
+    individual sequence elements are only compared for sequences of the same
+    size.
     </p>
 
     <h4>Collection indexing and slicing</h4>
@@ -3286,7 +3427,7 @@ else:
     consists of a return value expression (which may be a tuple) followed by
     the <code>RET</code> instruction. If no return value is specified, a
     <code>PUSHN</code> instruction is emitted in lieu of the missing
-    expression to return the default <code>None</code> value. 
+    expression to return the default <code>None</code> value.
     </p>
 
     <p>

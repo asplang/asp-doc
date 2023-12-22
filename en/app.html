@@ -1081,7 +1081,8 @@ bool AspIs<i>Type</i>(const AspDataEntry *);
 bool AspIsIntegral(const AspDataEntry *);
 bool AspIsNumber(const AspDataEntry *);
 bool AspIsNumeric(const AspDataEntry *);
-bool AspIsSequence(const AspDataEntry *);</pre>
+bool AspIsSequence(const AspDataEntry *);
+bool AspIsAppObject(const AspDataEntry *);</pre>
     </blockquote>
 
     <p>
@@ -1091,7 +1092,8 @@ bool AspIsSequence(const AspDataEntry *);</pre>
     <code>AspIsBoolean</code>, <code>AspIsInteger</code>,
     <code>AspIsFloat</code>, <code>AspIsRange</code>,
     <code>AspIsString</code>, <code>AspIsTuple</code>, <code>AspIsList</code>,
-    <code>AspIsSet</code>, <code>AspIsDictionary</code>, and
+    <code>AspIsSet</code>, <code>AspIsDictionary</code>,
+    <code>AspIsAppIntegerOject</code>, <code>AspIsAppPointerOject</code>, and
     <code>AspIsType</code>, all corresponding to the applicable type in the
     name. Each one returns <code>true</code> if the argument is of the
     applicable type.
@@ -1103,10 +1105,11 @@ bool AspIsSequence(const AspDataEntry *);</pre>
     argument is either Boolean or integer. <code>AspIsNumber</code> returns
     <code>true</code> for integer and floating-point values.
     <code>AspIsNumeric</code> returns <code>true</code> for Booleans,
-    integers, and floating-point values. And finally,
-    <code>AspIsSequence</code> returns <code>true</code> for tuples and lists,
-    but not for strings, even though in some respects, strings can be treated
-    like sequences.
+    integers, and floating-point values. <code>AspIsSequence</code> returns
+    <code>true</code> for tuples and lists, but not for strings, even though in
+    some respects, strings can be treated like sequences. And finally,
+    <code>AspIsAppObject</code> returns <code>true</code> if the object is
+    either of the two types of application object: integer or pointer.
     </p>
 
     <h3>Value extraction</h3>
@@ -1119,7 +1122,13 @@ bool AspRangeValues
      int32_t *start, int32_t *end, int32_t *step);
 bool AspStringValue
     (AspEngine *, const AspDataEntry *,
-     size_t *size, char *buffer, size_t index, size_t bufferSize);</pre>
+     size_t *size, char *buffer, size_t index, size_t bufferSize);
+bool AspAppObjectTypeValue
+    (AspEngine *, const AspDataEntry *, int16_t *);
+bool AspAppIntegerObjectValues
+    (AspEngine *, const AspDataEntry *, int16_t *appType, int32_t *value);
+bool AspAppPointerObjectValues
+    (AspEngine *, const AspDataEntry *, int16_t *appType, void **value);</pre>
     </blockquote>
 
     <p>
@@ -1189,6 +1198,15 @@ bool AspStringValue
     byte larger than the size given in <code>bufferSize</code> and ensure that
     the final byte of this buffer is set to the null character, as
     <code>AspStringValue</code> will not write to it.
+    </p>
+
+    <p>
+    The type and value of application-specific objects may be obtained by using
+    <code>AspAppIntegerObjectValues</code> or
+    <code>AspAppPointerObjectValues</code>. If only the type is needed,
+    <code>AspAppObjectTypeValue</code> may be used. More information on
+    application objects may be found in the section on
+    <a href='#ObjectCreation'>object creation</a>).
     </p>
 
     <h3>Conversion to string</h3>
@@ -1304,7 +1322,7 @@ AspDataEntry *AspNext(AspEngine *, AspDataEntry *iterator);</pre>
     <code>AspNext</code> returns a null pointer.
     </p>
 
-    <h3>Object creation</h3>
+    <h3 id='ObjectCreation'>Object creation</h3>
 
     <blockquote><pre>
 AspDataEntry *AspNew<i>Type</i>(AspEngine *);
@@ -1312,11 +1330,17 @@ AspDataEntry *AspNewBoolean(AspEngine *, bool value);
 AspDataEntry *AspNewInteger(AspEngine *, int32_t value);
 AspDataEntry *AspNewFloat(AspEngine *, double value);
 AspDataEntry *AspNewRange
-  (AspEngine *, int32_t start, int32_t end, int32_t step);
+    (AspEngine *, int32_t start, int32_t end, int32_t step);
 AspDataEntry *AspNewUnboundedRange
-  (AspEngine *, int32_t start, int32_t step);
+    (AspEngine *, int32_t start, int32_t step);
 AspDataEntry *AspNewString(AspEngine *, const char *buffer, size_t size);
 AspDataEntry *AspNewIterator(AspEngine *, AspDataEntry *iterable);
+AspDataEntry *AspNewAppIntegerObject
+    (AspEngine *, int16_t appType, int32_t value,
+     void (*destructor)(AspEngine *, int16_t appType, int32_t value));
+AspDataEntry *AspNewAppPointerObject
+    (AspEngine *, int16_t appType, void *value,
+     void (*destructor)(AspEngine *, int16_t appType, void *value));
 AspDataEntry *AspNewType(AspEngine *, const AspDataEntry *object);</pre>
     </blockquote>
 
@@ -1357,6 +1381,61 @@ AspDataEntry *AspNewType(AspEngine *, const AspDataEntry *object);</pre>
     their end by converting them to a Boolean value using
     <code>AspIsTrue</code>. A value of <code>false</code> indicates the
     iterator has reached its end.
+    </p>
+
+    <p>
+    Asp supports two application-specific object types. One uses an integer to
+    identify an object within the application, and the other uses a pointer.
+    Integer-type application objects are created using
+    <code>AspNewAppIntegerObject</code>, while pointer-type ones are created
+    with <code>AspNewAppPointerObject</code>. An application may use one or the
+    other, or both, depending on the nature of the objects being referenced.
+    In addition to the integer or pointer value, a 16&#8209;bit type value is
+    used to identify the object's type in the application. The contents of such
+    objects are inaccessible to script code; scripts can only pass them around,
+    group them into collections, etc., but the main purpose of these objects is
+    to carry information sufficient for the application to locate and
+    manipulate data structures that only the application knows about.
+    </p>
+
+    <p>
+    A couple of examples should suffice to explain how application objects are
+    used, and how to decide which type is preferable in a given situation.
+    First, we will consider an open file descriptor, which is an integer value
+    in POSIX systems (e.g., the return value of the POSIX <code>open</code>
+    function). Asp scripts have no notion of files, but an application can
+    provide an interface for interacting with files by creating, returning, and
+    accepting as parameters, application objects representing open files. In
+    this example, an integer-type application object would be appropriate to
+    hold the file descriptor.
+    </p>
+
+    <p>
+    Pointer-type application objects can be used anywhere an application uses
+    a pointer to refer to an object or structure instance. For example,
+    instead of using POSIX calls for a file interface, an application could
+    use the C <code>FILE&nbsp;*</code> pointer value returned by
+    <code>fopen</code> to represent an open file.
+    </p>
+
+    <p>
+    For structure (or C++ class) instances that the application manages, the
+    type of application object can depend on how the application manages the
+    objects. An integer can be used, for example, to index an array of objects.
+    A pointer can be used to reference a dynamically allocated structure. In
+    any case, the integer or pointer must uniquely identify an object in the
+    application.
+    </p>
+
+    <p>
+    For both integer-type and pointer-type application objects, a
+    <code>destructor</code> function must be specified when they are created.
+    This destructor handles objects whose use count drops to zero during script
+    execution. But note that other objects may remain when a script finishes
+    execution, and must be handled by the application. Further discussion of
+    automatic application object destruction and the responsibilities of the
+    application can be found in the section on
+    <a href='#AppObjectDestruction'>destruction of application objects</a>.
     </p>
 
     <p>
@@ -1539,6 +1618,9 @@ void AspUnref(AspEngine *, AspDataEntry *object);</pre>
     unnecessarily.
     </p>
 
+    <p>See also the section on the <a href='#AppObjectDestruction'>destruction
+    of application objects</a>, which require special consideration.
+
     <blockquote id='Note-DefaultReturn'><sup>*</sup><small>
     Strictly speaking, this is not an accurate description because the
     engine's data area contains only one shared <code>None</code> object. So,
@@ -1547,6 +1629,43 @@ void AspUnref(AspEngine *, AspDataEntry *object);</pre>
     <code>None</code> object should never cause it to be destroyed, as its use
     count should never reach zero.
     </small></blockquote>
+
+    <h3 id='AppObjectDestruction'>Destruction of application objects</h3>
+
+    <p>
+    When the use count of an application object is reduced to zero, a
+    <code>destructor</code> function, specified when the object was created,
+    is called. (See the <a href='#ObjectCreation'>object creation</a>
+    section for details.) This function can be used to perform any resource
+    management tasks required to clean up the object. For example, if the
+    object represents an open file, the destructor function would be used to
+    close the file.
+    </p>
+
+    <p>
+    Although the destructor function is called for any application object
+    whose use count drops to zero, it should be noted this will not happen for
+    all application objects when a scripts ends, either successfully or in
+    error. For this reason, applications must organize such objects in a way
+    that, upon script completion, any objects that remain can be cleaned up.
+    Failing to deal with application objects remaining after a script finishes
+    execution can result in unintentional memory and/or resource leaks. Of
+    course, an application can decide to allow objects to persist from one
+    script invocation to the next, but ulimately, the application is
+    responsible for resource management in this regard.
+    </p>
+
+    <p>
+    Like other application functions, the destructor function should perform
+    its task quickly and return control back to the engine in a timely fashion.
+    Unlike regular application functions, there is no way to return
+    <code>AspRunResult_Again</code> to cause a re-entrant call, so if the
+    destruction of an application object could take a considerable amount of
+    time to complete, then instead of causing a delay in the engine, the
+    destructor function should note the condition in the context area, and then
+    perform the waiting outside of script execution, i.e., between calls to
+    <code>AspStep</code>.
+    </p>
 
     <h3>Argument access</h3>
 
