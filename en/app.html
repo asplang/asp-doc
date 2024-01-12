@@ -647,6 +647,36 @@ AspRunResult AspSetArgumentsString(AspEngine *, const char *s);</pre>
     external arguments from within a script.
     </p>
 
+    <h4><code>AspSetCycleDetectionLimit</code> and
+        <code>AspGetCycleDetectionLimit</code>
+    </h4>
+
+    <blockquote><pre>
+AspRunResult AspSetCycleDetectionLimit(AspEngine *, uint32_t limit);
+uint32_t AspGetCycleDetectionLimit(AspEngine *);</pre>
+    </blockquote>
+
+    <p>
+    Theoretically, it would be possible to create data structures that would
+    cause <code>AspStep</code> to execute endlessly. An example is a list that
+    contains a reference to itself. In this theoretical situation, the engine
+    could get hung up cycling through the same parts of the structure. In some
+    cases, because of the way Asp handles recursion, the engine can run out of
+    memory, in which case the script's execution ends with an error. However,
+    without intervention, it would possible in other circumstances for the
+    engine never to return from <code>AspStep</code>.
+    </p>
+
+    <p>
+    To deal with this situation, the engine enforces a limit on the number of
+    items it will visit within a data structure. Initially, this limit is set
+    (in <code>AspInitialize</code>) to half the number of elements in the data
+    area, which approximates the size of the largest possible data structure.
+    If this value is too large or too small for the application at hand, it may
+    be adjusted using <code>AspSetCycleDetectionLimit</code>. The current value
+    may be queried with <code>AspGetCycleDetectionLimit</code>.
+    </p>
+
     <h4><code>AspRestart</code> and <code>AspReset</code></h4>
 
     <blockquote><pre>
@@ -780,6 +810,15 @@ AspRunResult AspStep(AspEngine *);</pre>
         The engine is attempting to pop a value off its internal stack
         (maintained in the data area), but the stack is empty. This may
         indicate a bug in the Asp compiler.
+        </td>
+      <tr>
+      <tr>
+        <td><code>CycleDetected</code></td>
+        <td>
+        In one of several situations where the engine handles recursion by
+        using iteration, the number of iterations has exceeded the set limit,
+        indicating that it is likely operating on a self-referencing data
+        structure (e.g., a list containing a references to itself).
         </td>
       <tr>
       <tr>

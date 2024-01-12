@@ -1120,6 +1120,15 @@
     conversion (like out of data memory).
     </p>
 
+    <p>
+    Dealing with self-referential data structures will often cause an endless
+    loop during instruction execution. To avoid this situation, a limit on the
+    number of loop iterations is imposed. Its initial value is set to half of
+    the number of data entries, which should be more than the number of items
+    in the largest possible collection. The limit can be changed by the
+    application using the <code>AspSetCycleDetectionLimit</code> routine.
+    </p>
+
     <h3>Initialization</h3>
 
     <p>
