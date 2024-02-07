@@ -1895,14 +1895,15 @@ assert i &lt; size</pre>
     Conversion from floating-point to integer results in truncation towards
     zero, except if the floating-point value is out of range, in which case
     an error condition is raised. Out of range conditions include the
-    positive and negative infinities and NaN values. This checking can be
-    disabled via a <code>check</code> parameter which takes a Boolean value.
-    Conversion from Boolean yields <code>0</code> or <code>1</code> for
+    positive and negative infinities and <code>NaN</code> values. This checking
+    can be disabled via a <code>check</code> parameter which takes a Boolean
+    value.  Conversion from Boolean yields <code>0</code> or <code>1</code> for
     conversion to integer, or in the case of conversion to floating-point,
     <code>0.0</code> or <code>1.0</code>. When converting from a string, the
     content of the string is parsed and, if valid, yields an appropriate
-    numeric value. An invalid number string will cause an error, ending the
-    execution of the script, so care must be taken to avoid this condition.
+    numeric value. An invalid or out of range number string will cause an
+    error, ending the execution of the script, so care must be taken to avoid
+    this condition.
     </p>
 
     <p>
