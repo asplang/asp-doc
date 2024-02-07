@@ -1892,7 +1892,11 @@ assert i &lt; size</pre>
     <p>
     The <code>int</code> and <code>float</code> functions work with numeric
     objects (Boolean, integer, and floating-point) and with strings.
-    Conversion from floating-point to integer results in truncation.
+    Conversion from floating-point to integer results in truncation towards
+    zero, except if the floating-point value is out of range, in which case
+    an error condition is raised. Out of range conditions include the
+    positive and negative infinities and NaN values. This checking can be
+    disabled via a <code>check</code> parameter which takes a Boolean value.
     Conversion from Boolean yields <code>0</code> or <code>1</code> for
     conversion to integer, or in the case of conversion to floating-point,
     <code>0.0</code> or <code>1.0</code>. When converting from a string, the
