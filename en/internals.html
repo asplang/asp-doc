@@ -642,7 +642,7 @@
       </tr>
       <tr>
         <td>Parameter</td>
-        <td style='text-align: center;'><code>0x80</code></td><td>2</td>
+        <td style='text-align: center;'><code>0x80</code></td><td>3</td>
         <td>&check;</td><td>&check;</td><td></td><td></td>
         <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
@@ -654,7 +654,7 @@
       </tr>
       <tr>
         <td>Argument</td>
-        <td style='text-align: center;'><code>0x82</code></td><td>2</td>
+        <td style='text-align: center;'><code>0x82</code></td><td>3</td>
         <td>&check;</td><td>&check;</td><td></td><td></td>
         <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
@@ -831,15 +831,17 @@
     <p>
     Parameters contain the parameter's symbol in word 0. A bit flag indicates
     whether the parameter has a default value, and if so, its index is in word
-    1. There is also a bit flag that indicates whether the parameter is a
-    group (e.g. <code>*args</code>).
+    1. There are also two other bit flags that indicates whether the parameter
+    is a tuple group (e.g., <code>*args</code>) or a dictionary group (e.g.,
+    <code>**kwargs</code>).
     </p>
 
     <p>
     Arguments contain an index to the value in word 1. If the argument is
     named, this is indicated by a bit flag and the symbol of the name is in
-    word 0. Like Parameters, another bit flag is used to indicate whether the
-    argument is a tuple group.
+    word 0. Like Parameters, two other bit flags are used to indicate whether
+    the argument is a iterable group (i.e., preceded by <code>*</code>) or a
+    dictionary group (i.e., preceded by <code>**</code>).
     </p>
 
     <p>
@@ -1800,18 +1802,20 @@
     <p>
     Several instructions are used to define functions. The main one is
     <code>MKFUN</code>, but it relies on the <code>MKPAR<i>n</i></code>,
-    <code>MKDPAR<i>n</i></code>, and <code>MKGPAR<i>n</i></code> instructions
-    to form the parameter lists that become part of a function definition, so
-    we will cover these first.
+    <code>MKDPAR<i>n</i></code>, <code>MKTGPAR<i>n</i></code>, and
+    <code>MKDGPAR<i>n</i></code> instructions to form the parameter lists that
+    become part of a function definition, so we will cover these first.
     </p>
 
     <p>
     The <code>MKPAR1</code>, <code>MKPAR2</code>, and <code>MKPAR4</code>
     instructions extract the parameter's symbol from an appropriately sized
     immediate operand and push a new parameter entry onto the stack. The
-    <code>MKGPAR1</code>, <code>MKGPAR2</code>, and <code>MKGPAR4</code>
-    instructions do likewise, setting the group bit in the Parameter entry.
-    Typical, a <code>BLD</code> instruction (see the section on
+    <code>MKTGPAR1</code>, <code>MKTGPAR2</code>, and <code>MKTGPAR4</code>
+    instructions do likewise, setting the tuple group bit in the Parameter
+    entry. Likewise, the <code>MKDGPAR1</code>, <code>MKDGPAR2</code>, and
+    <code>MKDGPAR4</code> do the same, only they set the dictionary group bit
+    instead. Typically, a <code>BLD</code> instruction (see the section on
     <a href='#CollectionManipulation'>collection manipulation</a>) adds this
     Parameter entry to a parameter list that is already on the stack.
     </p>
@@ -1854,19 +1858,23 @@
     <h4>Function call</h4>
 
     <p>
-    Like function definition, several instructions are involved in the calling
+    Like function definitions, several instructions are involved in the calling
     of a function, the main one being the <code>CALL</code> instruction.
     Argument creation is done using the <code>MKARG</code>,
-    <code>MKNARG<i>n</i></code>, and <code>MKGARG</code> instructions.
+    <code>MKNARG<i>n</i></code>, <code>MKIGARG<i>n</i></code>, and
+    <code>MKDGARG</code> instructions.
     </p>
 
     <p>
     The <code>MKARG</code> instruction is used to create a positional
     argument. It replaces the value object on the top of the stack with an
-    applicable argument entry. The <code>MKGARG</code> instruction is very
-    similar except for two things. First, it ensures the value on the top of
-    the stack is a tuple, and second, it sets the group bit on the argument
-    entry in order to invoke the proper treatment when the call happens.
+    applicable argument entry. The <code>MKIGARG</code> and
+    <code>MKDGARG</code> instructions are very similar except for two things.
+    First, they ensure the value on the top of the stack is appropriate (i.e.,
+    an iterable for <code>MKIGARG</code> and a dictionary for
+    <code>MKDGARG</code>), and second, they set the applicable group bit on the
+    argument entry in order to invoke the proper treatment when the call
+    happens.
     </p>
 
     <p>
@@ -2152,12 +2160,17 @@
 
     <p>
     The last complication arises with the insertion of arguments into an
-    argument list. If the Argument entry is marked with the group bit set, the
-    value referred to from the Argument entry must be a tuple. The tuple is
+    argument list. If the Argument entry is marked with the iterable group bit
+    set, the value referred to from the Argument entry must be iterable, that
+    is, a range, string, tuple, list, set, or dictionary. The iterable is
     traversed (top-level only) and each item within is appended individually
-    into the target argument list. If instead the argument's group bit is not
-    set, it is treated in the same manner as appending to a tuple or parameter
-    list, as described above.
+    into the target argument list. For dictionary key/value pairs, the pair is
+    inserted as a tuple. If the Argument entry is marked with the dictionary
+    group bit set, the value entry must refer to a dictionary with symbol
+    objects as keys, in which case each entry is expanded to a named argument.
+    Finally, if neither of the argument's group bits is set, it is treated in
+    the same manner as appending to a tuple or parameter list, as described
+    above.
     </p>
 
     <p>
@@ -2590,16 +2603,17 @@
 
     <p>
     The argument list may consist of multiple arguments, some of which may be
-    named or identified as a group (the <code>*args</code> syntax). Like with
-    regular sequences, to emit the argument list, first an empty argument list
-    is pushed onto the stack using a <code>PUSHAL</code> instruction. Then,
-    for each argument expression, the expression is emitted and then followed
-    by a <code>BLD</code> instruction to add the argument to the list. Named
-    arguments emit the <code>MKNARG</code> instruction, with the name symbol
-    as an operand. Unnamed arguments emit the <code>MKARG</code> instruction
-    if they are not a group, or the <code>MKGARG</code> instruction if they
-    are. Neither instruction requires an operand but uses the value on the top
-    of the stack.
+    named or identified as a group (the <code>*args</code> or
+    <code>**kwargs</code> syntax). Like with regular sequences, to emit the
+    argument list, first an empty argument list is pushed onto the stack using
+    a <code>PUSHAL</code> instruction. Then, for each argument expression, the
+    expression is emitted and then followed by a <code>BLD</code> instruction
+    to add the argument to the list. Named arguments emit the
+    <code>MKNARG</code> instruction, with the name symbol as an operand.
+    Unnamed arguments emit the <code>MKARG</code> instruction if they are not a
+    group, or the <code>MKIGARG</code> or <code>MKDGARG</code> instruction if
+    they are. None of these instructions requires an operand but uses the value
+    on the top of the stack.
     </p>
 
     <h4 id='JumpExpressionsCode'>Expressions with jumps</h4>
