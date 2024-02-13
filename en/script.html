@@ -932,6 +932,16 @@ d2 = {'one': 1, 'two': 2, 'three': 3} # a dictionary with 3 kv pairs</pre>
     </p>
 
     <p>
+    It should be noted that because Asp integers are of fixed size (32 bits),
+    arithmetic overflow conditions can arise. For example, dividing the most
+    negative integer value by <code>-1</code> will cause a script to end in
+    error, as will adding, subtracting, or multiplying values that yield values
+    that cannot be represented. In these cases, wraparound does not occur. If
+    integer wraparound is desired, custom functions should be added to the
+    application to provide this functionality.
+    </p>
+
+    <p>
     In addition to operations on numeric operands, two other operations are
     supported which may be familiar to Python programmers: sequence
     concatenation and sequence repetition.

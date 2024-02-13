@@ -560,7 +560,7 @@ AspAddCodeResult AspSealCode
         characters <q><span class='tt'>AspE</span></q>. If this is not the
         case, this error code is returned.
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>InvalidVersion</code></td>
         <td>
@@ -570,7 +570,7 @@ AspAddCodeResult AspSealCode
         returned if the version components do not match exactly, indicating an
         incompatibility issue.
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>InvalidCheckValue</code></td>
         <td>
@@ -583,7 +583,7 @@ AspAddCodeResult AspSealCode
         <code>AspAppSpec</code> structure provided during engine
         initialization and if different, this error is returned.
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>OutOfCodeMemory</code></td>
         <td>
@@ -592,7 +592,7 @@ AspAddCodeResult AspSealCode
         using <code>AspSealCode</code>, as the space where the script's
         executable code resides is outside the engine's code area.
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>InvalidState</code></td>
         <td>
@@ -601,7 +601,7 @@ AspAddCodeResult AspSealCode
         where calls to these functions are not expected, for example, when a
         script is running.
         </td>
-      <tr>
+      </tr>
     </table>
 
     <h4 id='SettingArguments'><code>AspSetArguments</code> and
@@ -763,7 +763,7 @@ AspRunResult AspStep(AspEngine *);</pre>
         <code>AspStep</code> to return
         <code>AspRunResult_MalformedFunctionCall</code> instead.
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>InitializationError</code></td>
         <td>
@@ -771,7 +771,7 @@ AspRunResult AspStep(AspEngine *);</pre>
         <code>AspInitialize</code>. This can be caused by passing invalid
         parameters to this function.
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>InvalidState</code></td>
         <td>
@@ -779,7 +779,7 @@ AspRunResult AspStep(AspEngine *);</pre>
         is not expected. Calling engine control functions from within a
         script-callable application function call will cause this error.
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>InvalidInstruction</code></td>
         <td>
@@ -787,7 +787,7 @@ AspRunResult AspStep(AspEngine *);</pre>
         code. This would normally indicate some sort of memory corruption in
         the code area, or a bug in the Asp compiler.
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>InvalidEnd</code></td>
         <td>
@@ -795,7 +795,7 @@ AspRunResult AspStep(AspEngine *);</pre>
         stack (maintained in the data area) is not empty. This may indicate a
         bug in the Asp compiler.
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>BeyondEndOfCode</code></td>
         <td>
@@ -803,7 +803,7 @@ AspRunResult AspStep(AspEngine *);</pre>
         would advance beyond the end of the loaded code. This may indicate
         memory corruption in the code area, or a bug in the Asp compiler.
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>StackUnderflow</code></td>
         <td>
@@ -811,7 +811,7 @@ AspRunResult AspStep(AspEngine *);</pre>
         (maintained in the data area), but the stack is empty. This may
         indicate a bug in the Asp compiler.
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>CycleDetected</code></td>
         <td>
@@ -820,7 +820,7 @@ AspRunResult AspStep(AspEngine *);</pre>
         indicating that it is likely operating on a self-referencing data
         structure (e.g., a list containing a references to itself).
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>InvalidContext</code></td>
         <td>
@@ -828,7 +828,7 @@ AspRunResult AspStep(AspEngine *);</pre>
         Asp <code>global</code> or <code>local</code> statement outside the
         context of a function. This may indicate a bug in the Asp compiler.
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>Redundant</code></td>
         <td>
@@ -836,7 +836,7 @@ AspRunResult AspStep(AspEngine *);</pre>
         being made when the variable in question already has the indicated
         override.
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>UnexpectedType</code></td>
         <td>
@@ -845,14 +845,14 @@ AspRunResult AspStep(AspEngine *);</pre>
         unexpected type. For example, the index value of an indexing expression
         is expected to be an integer.
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>SequenceMismatch</code></td>
         <td>
         A mismatch between the sequences on the left and right sides of an
         assignment has been encountered.
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>NameNotFound</code></td>
         <td>
@@ -860,14 +860,14 @@ AspRunResult AspStep(AspEngine *);</pre>
         (e.g., calling a function by name) finds that the variable is not
         defined (i.e., has not been assigned a value).
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>KeyNotFound</code></td>
         <td>
         An attempt to look up a key in a set or dictionary has been made and
         the key cannot be found.
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>ValueOutOfRange</code></td>
         <td>
@@ -876,7 +876,7 @@ AspRunResult AspStep(AspEngine *);</pre>
         Another example is that the right operand of a shift operation is less
         than zero.
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>IteratorAtEnd</code></td>
         <td>
@@ -885,7 +885,7 @@ AspRunResult AspStep(AspEngine *);</pre>
         happen when using the iterators provided by the <code>for</code>
         statement.
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>MalformedFunctionCall</code></td>
         <td>
@@ -893,7 +893,7 @@ AspRunResult AspStep(AspEngine *);</pre>
         <code>AspRunResult_Complete</code>, presumably in an attempt to end
         script execution successfully. This is not permitted.
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>UndefinedAppFunction</code></td>
         <td>
@@ -901,21 +901,30 @@ AspRunResult AspStep(AspEngine *);</pre>
         defined by the application. This may indicate a bug in the Asp
         compiler.
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>DivideByZero</code></td>
         <td>
         The script has attempted to use zero as the divisor of a division or
         modulus operation.
         </td>
+      </tr>
       <tr>
+        <td><code>ArithmeticOverflow</code></td>
+        <td>
+        The script has attempted to perform an operation that would result in
+        arithmetic overflow (or underflow) such as adding two integer values
+        whose sum cannot be represented as a 32-bit signed integer. Unlike
+        Python, Asp does not support arbitrary precision integers.
+        </td>
+      </tr>
       <tr>
         <td><code>OutOfDataMemory</code></td>
         <td>
         The script has attempted to allocate a data entry when no more are
         available in the data area.
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>Again</code></td>
         <td>
@@ -923,28 +932,28 @@ AspRunResult AspStep(AspEngine *);</pre>
         request re-entry in order to continue the operation. It is never
         returned by <code>AspStep</code> or any other API function.
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>Abort</code></td>
         <td>
         A script has executed an <code>assert</code> statement with a condition
         that evaluates to <code>False</code>.
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>InternalError</code></td>
         <td>
         An unexpected condition has occurred in the engine, likely caused by
         memory corruption or a bug in the engine's implementation.
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>NotImplemented</code></td>
         <td>
         The sought-after functionality has not yet been implemented in the
         engine. Check subsequent versions.
         </td>
-      <tr>
+      </tr>
       <tr>
         <td><code>Application</code></td>
         <td>
@@ -952,7 +961,7 @@ AspRunResult AspStep(AspEngine *);</pre>
         application by using this code as a base for codes equal to or greater
         than this code.
         </td>
-      <tr>
+      </tr>
     </table>
 
     <h4>Execution information</h4>
