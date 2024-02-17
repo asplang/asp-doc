@@ -1899,6 +1899,22 @@ assert i &lt; size</pre>
     </p>
 
     <p>
+    As with Python, mutable objects cannot be used as keys in sets and
+    dictionaries. An attempt to insert a non-key object into a set or
+    dictionary will result in an error, ending the script. To prevent this from
+    happening, Asp provides the <code>key</code> function, which returns the
+    passed argument if the object can be used as a key, and <code>None</code>
+    otherwise. Since <code>None</code> is itself a valid key, the condition to
+    test an object is a little more complex. To determine whether the variable
+    <code>x</code> can be used as a key, the following statement could be used.
+    </p>
+
+    <blockquote><pre>
+if x is None or key(x) is not None:
+    # x can be used as a key...</pre>
+    </blockquote>
+
+    <p>
     The <code>len</code> function returns the length of a given object.
     Depending on the type of the object, that means different things. For a
     tuple or list, it's the number of elements. For a set or dictionary, it's
