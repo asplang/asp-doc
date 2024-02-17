@@ -785,9 +785,8 @@ AspRunResult AspStep(AspEngine *);</pre>
         <td>
         The script has successfully finished executing. Note that while most
         error codes can be returned by script-callable application functions,
-        this one cannot be. An attempt to do so will cause
-        <code>AspStep</code> to return
-        <code>AspRunResult_MalformedFunctionCall</code> instead.
+        this one cannot be. An attempt to do so will cause <code>AspStep</code>
+        to return <code>AspRunResult_InvalidAppFunction</code> instead.
         </td>
       </tr>
       <tr>
@@ -915,9 +914,21 @@ AspRunResult AspStep(AspEngine *);</pre>
       <tr>
         <td><code>MalformedFunctionCall</code></td>
         <td>
+        One of several constraints was violated while processing a function
+        call. Typically, this has to do with how arguments are specified, for
+        example, placing keyword arguments before positional ones in the
+        argument list, or using an unknown parameter
+        name.
+        </td>
+      </tr>
+      <tr>
+        <td><code>InvalidAppFunction</code></td>
+        <td>
         A script-callable application function returned
         <code>AspRunResult_Complete</code>, presumably in an attempt to end
-        script execution successfully. This is not permitted.
+        script execution successfully. This is not permitted. However, a
+        script may call the <code>exit</code> system function for such a
+        purpose.
         </td>
       </tr>
       <tr>
