@@ -174,8 +174,8 @@ AspTupleAppend(engine, tuple, value, true);
     application specification file (<q><span class='tt'>.aspec</span></q>)
     which is used by the Asp compiler when compiling scripts for the
     application. The next section describes the syntax of the application
-    specification source file, and figure below shows where it fits into the
-    development flow.
+    specification source file, and the figure below shows where it fits into
+    the development flow.
     </p>
 
     <img src='flow.png' class='center' width='75%'>
@@ -216,10 +216,10 @@ def print(*args) = asp_print</pre>
     <code>sleep</code> or <code>print</code> functions will end up calling the
     application's <code>asp_sleep</code> and <code>asp_print</code> C
     functions, respectively<a href='#Note-FunctionNames'><sup>*</sup></a>.
-    Notice that positional variable argument lists are supported, as in the
-    <code>*args</code> parameter of the print function. (Note, however, that
-    keyword variable argument lists &mdash; **kwargs &mdash; are not
-    supported at this time.)
+    Notice that positional and named (keyword) variable parameter lists are
+    supported. For example, the <code>print</code> function definition includes
+    the <code>*args</code> parameter, which represents a variable-length tuple
+    of arguments.
     </p>
 
     <p>
@@ -251,7 +251,33 @@ PI = 3.1415926535</pre>
     </blockquote>
 
     <p>
-    It should be noted that all the function and variable definitions
+    It is also possible to define a name without assigning a value. No code
+    is generated during script initialization for such definitions, but a
+    symbol value is reserved for the name.
+    </p>
+
+    <blockquote><pre>
+xpos
+ypos
+width
+height</pre>
+    </blockquote>
+
+    <p>
+    The generated header includes a macro definition for each name used in the
+    specification. This includes names of functions, function parameters,
+    and variables, with or without an assigned value. The form of this name is
+    shown below. These definitions allow the application to use the symbols by
+    name to, for example, test for the presence of an argument in the named
+    variable parameter lists (e.g., <code>**kwargs</code>).
+    </p>
+
+    <blockquote><pre>
+#define ASP_APP_<i>app-name</i>_SYM_<i>var-name</i> <i>symbol-value</i></pre>
+    </blockquote>
+
+    <p>
+    It should be noted that all the function and assigned variable definitions
     described in the application specification are initialized prior to each
     new script execution. So, a script that makes changes to the definitions
     during its execution will not affect the environment of the next script to
@@ -1981,14 +2007,15 @@ const char *AspRunResultToString(int result);</pre>
     the codes. How this is done is specific to each application.
     </p>
 
-    <h3>Source location</h3>
+    <h3>Source information</h3>
 
     <blockquote><pre>
 AspSourceInfo *AspLoadSourceInfoFromFile(const char *fileName);
 AspSourceInfo *AspLoadSourceInfo(const char *data, size_t size);
 void AspUnloadSourceInfo(AspSourceInfo *);
 AspSourceLocation AspGetSourceLocation(const AspSourceInfo *, size_t pc);
-const char *AspGetSourceFileName(const AspSourceInfo *, unsigned index);</pre>
+const char *AspGetSourceFileName(const AspSourceInfo *, unsigned index);
+const char *AspGetSymbolName(const AspSourceInfo *, uint32_t symbol);</pre>
     </blockquote>
 
     <p>
@@ -2037,9 +2064,9 @@ typedef struct AspSourceLocation
 
     <p>
     In the event an invalid program counter is passed, the returned structure
-    will have its fileName member set to the null pointer. Otherwise, the name
-    of the source file and the applicable line and column of script source
-    code will be populated.
+    will have its <code>fileName</code> member set to the null pointer.
+    Otherwise, the name of the source file and the applicable line and column
+    of script source code will be populated.
     </p>
 
     <p>
@@ -2055,6 +2082,17 @@ typedef struct AspSourceLocation
     Repeatedly calling this routine with increasing values of the index
     parameter until it returns a null pointer will return the names of all the
     source files comprising the script.
+    </p>
+
+    <p>
+    Symbol numbers may also be translated into their corresponding name via the
+    <code>AspGetSymbolName</code> function. Since symbols are printed as
+    numeric values, this can help identify a variable or other named object
+    of interest. Note that older versions of the compiler did not write symbol
+    name information into the debug information file. In this case,
+    <code>AspGetSymbolName</code> returns a null pointer. If the symbol
+    information is present, but the symbol number is not found, an empty string
+    is returned. In this way, the two error conditions can be distinguished.
     </p>
 
     <h2>More information</h2>
