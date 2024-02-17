@@ -1888,6 +1888,19 @@ assert i &lt; size</pre>
     which functions are available and how to use them.
     </p>
 
+    <h4>System functions</h4>
+
+    <p>
+    Asp provides an <code>exit</code> function that takes an optional
+    <code>code</code> value. This function causes the script to end
+    immediately. If the value of <code>code</code> is either <code>None</code>
+    (the default) or the integer value <code>0</code>, the script ends
+    normally. However, if a non-zero integer or other type of value is used,
+    the script ends in error. Depending on the <code>code</code> value, the
+    application may be able to discern the nature of the error, especially if
+    it is a non-zero integer.
+    </p>
+
     <h4>Type support functions</h4>
 
     <p>
