@@ -1173,6 +1173,38 @@ r7 = a or b or c</pre>
     performed as in Python.
     </p>
 
+    <p>
+    These operators can also be used to test the existence of a symbol in
+    a module or in the local scope of a function. In this usage, the left
+    operand must be a symbol and the right operand can be either a module or
+    the Ellipsis (<code>...</code>). As described in the section on built-in
+    functions, the <code>module</code> function returns the current module, so
+    to determine whether a variable, say <code>x</code>, exists in the current
+    module's global scope, the following code can be used.
+    </p>
+
+    <blockquote><pre>
+if `x in module():
+    # ...</pre>
+    </blockquote>
+
+    <p>
+    To check the local scope, the Ellipsis (<code>...</code>), acts as a proxy
+    for the current local scope. So, in a function, it refers to the set of
+    variables local to the function. At the global scope of a module (i.e.,
+    outside of any function definition), it refers to the module's global
+    scope. Here is an example of how to check whether <code>x</code> exists in
+    the local scope, regardless of where it is used.
+    </p>
+
+    <blockquote><pre>
+if `x in ...:
+    # ...</pre>
+    </blockquote>
+
+    And of course, the <code>sys</code> module can be checked by specifying it
+    as the right operand.
+
     <h4>Identity tests</h4>
 
     <p>
@@ -1891,6 +1923,37 @@ assert i &lt; size</pre>
     <h4>System functions</h4>
 
     <p>
+    Asp includes a couple of functions that can assist in checking the
+    existence of a variable. The <code>exists</code> function accepts a symbol
+    and returns <code>True</code> if the variable was found in any of the
+    local, module, or system scopes. The <code>module</code> function is
+    provided to return the current module, which can be used, for example, in
+    an expression like <code>`symbol in module()</code> to determine whether a
+    variable exists at the global scope of a module. Other <code>in</code>
+    expressions can be used to check the local and system scopes.
+    </p>
+
+    <p>
+    The <code>sys</code> module also includes a variable called
+    <code>__main__</code> which is assigned to the main module. This can be use
+    in a fashion similar to how Python's <code>__name__</code> variable is used
+    to check whether the current module is the main module. In Asp, the
+    relevant code would be as follows.
+    </p>
+
+    <blockquote><pre>
+if module() is __main__:
+    # This is the main module...</pre>
+    </blockquote>
+
+    <p>
+    Like Python, Asp provides an <code>id</code> function that returns an
+    integer that is unique for every object during its lifetime. Note that the
+    value from a destroyed object can (and most probably will) be reassigned to
+    a new object.
+    </p>
+
+    <p>
     Asp provides an <code>exit</code> function that takes an optional
     <code>code</code> value. This function causes the script to end
     immediately. If the value of <code>code</code> is either <code>None</code>
@@ -1915,17 +1978,13 @@ assert i &lt; size</pre>
     As with Python, mutable objects cannot be used as keys in sets and
     dictionaries. An attempt to insert a non-key object into a set or
     dictionary will result in an error, ending the script. To prevent this from
-    happening, Asp provides the <code>key</code> function, which returns the
-    passed argument if the object can be used as a key, and <code>None</code>
-    otherwise. Since <code>None</code> is itself a valid key, the condition to
-    test an object is a little more complex. To determine whether the variable
-    <code>x</code> can be used as a key, the following statement could be used.
-    </p>
-
-    <blockquote><pre>
-if x is None or key(x) is not None:
-    # x can be used as a key...</pre>
-    </blockquote>
+    happening, Asp provides the <code>key</code> function, which converts its
+    argument to a string if it is not a valid key. If the argument <i>is</i> a
+    key, it is simply returned as is. The conversion to string is the default
+    behaviour, but is controlled by a <code>stringize</code> parameter, which
+    is <code>True</code> by default. If this parameter is <code>False</code>,
+    the <code>key</code> function returns <code>None</code>. In either case,
+    the returned value is always a valid key.
 
     <p>
     The <code>len</code> function returns the length of a given object.
