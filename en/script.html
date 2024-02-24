@@ -109,15 +109,14 @@
     </p>
 
     <p>
-    For convenience, the application specification file can be specified via
-    the <span class='tt'>ASP_SPEC_FILE</span> environment variable. If
-    <span class='tt'>ASP_SPEC_FILE</span> is not defined, the application
-    specification file may be specified on the command line. If it is not
-    defined in either way, the compiler looks for a file named
-    <span class='tt'>app.aspec</span> in the current working directory (which,
-    depending on your operating system, can be set up as a link to the real
-    file if desired). The following command assumes that the application
-    specification file is defined in one of the two ways described.
+    For convenience, the application specification file can be specified in
+    two other ways, eliminating the need to include it on the command line. The
+    first method uses a file called <span class='tt'>app.aspec</span> in the
+    same directory as the source file. The second method utilizes the
+    <span class='tt'>ASP_SPEC_FILE</span> environment variable, which should be
+    set to the full path of the desired specification file. If both of these
+    are present, the <span class='tt'>app.aspec</span> file takes priority over
+    the environment variable.
     </p>
 
     <blockquote>
@@ -163,12 +162,12 @@
       Specified on the command line.
       </li>
       <li>
-      Specified with the <span class='tt'>ASP_SPEC_FILE</span> environment
-      variable.
+      An <span class='tt'>app.aspec</span> file in the same directory as the
+      script's source file.
       </li>
       <li>
-      In the <span class='tt'>app.aspec</span> file in the current working
-      directory.
+      Defined by the <span class='tt'>ASP_SPEC_FILE</span> environment
+      variable.
       </li>
     </ol>
 
