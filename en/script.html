@@ -550,7 +550,7 @@ i..j+k          # From i to j+k-1, inclusive
 
     <p>
     Ranges can be used as array indices to perform slicing operations. They
-    are also iterable, making them very useful in for statements.
+    are also iterable, making them very useful in <code>for</code> statements.
     </p>
 
     <h4>Strings</h4>
@@ -1362,6 +1362,12 @@ move_to(x=10, y=20)</pre>
     dictionaries, key/value pairs are expanded as 2-tuples.
     </p>
 
+    <p>
+    Here, the number of arguments passed to the print function is the number
+    of elements in the <code>args</code> tuple, plus <code>1</code> for the
+    first argument.
+    </p>
+
     <blockquote><pre>
 print(10, *args)</pre>
     </blockquote>
@@ -1371,12 +1377,6 @@ print(10, *args)</pre>
     and passed as separate named arguments using the <code>**</code> prefix.
     Instead of using strings for the names as Python does, Asp requires that
     the keys be symbols (e.g., <code>`name</code>).
-    </p>
-
-    <p>
-    Here, the number of arguments passed to the print function is the number
-    of elements in the <code>args</code> tuple, plus <code>1</code> for the
-    first argument.
     </p>
 
     <h3>Statements</h3>
