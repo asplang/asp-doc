@@ -1857,14 +1857,14 @@ assert i &lt; size</pre>
     When compiling a script, <code>import</code> statements trigger the
     compiler to process the specified module(s). The compiler uses a search
     path to locate the source file for each imported module. If left
-    undefined, the default behaviour is to search only the current working
-    directory. To define a search path, assign a list of directories to the
-    <code>ASP_INCLUDE</code> environment variable, separated as appropriate
-    for the operating system (e.g., colons in Linux, semicolons for Windows).
-    When using <code>ASP_INCLUDE</code>, the current working directory is not
-    searched by default. A blank entry somewhere in the search path will
-    restore searching of the current working directory. For example, consider
-    the following search path, specified for a Linux system.
+    undefined, the default behaviour is to search only the directory in which
+    the top-level module resides. To define a search path, assign a list of
+    directories to the <code>ASP_INCLUDE</code> environment variable, separated
+    as appropriate for the operating system (e.g., colons in Linux, semicolons
+    for Windows). When using <code>ASP_INCLUDE</code>, the directory of the
+    top-level module is not searched by default. A blank entry somewhere in the
+    search path will restore searching of the main module's directory. For
+    example, consider the following search path, specified for a Linux system.
     </p>
 
     <blockquote><pre>
@@ -1874,9 +1874,9 @@ assert i &lt; size</pre>
     <p>
     The compiler will search for modules in the
     <span class='tt'>/usr/local/lib/asp</span> and
-    <span class='tt'>/usr/lib/asp</span> directories, the current working
-    directory, and the <span class='tt'>asp</span> directory in the user's
-    home directory, in that order.
+    <span class='tt'>/usr/lib/asp</span> directories, the directory in which
+    the top-level module resides, and then the <span class='tt'>asp</span>
+    directory in the user's home directory, in that order.
     </p>
 
     <p>
