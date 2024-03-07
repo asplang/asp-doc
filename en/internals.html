@@ -2381,6 +2381,22 @@
     </p>
 
     <p>
+    By default, import modules are sought in the same directory where the main
+    module resides. However, if the <code>ASP_INCLUDE</code> environment
+    variable is defined, import modules are sought in the specified directories
+    instead. A blank entry in the specified list of directories indicates the
+    directory in which the main module resides. It should be noted that the
+    list and order of directories in which import modules are sought is the
+    same for all modules. This means that the directory in which an importing
+    module resides does not take priority over other directories in the path.
+    This equal treatment guarantees that if a module by the same name occurs in
+    more than one directory in the path, it will only be imported from the
+    first directory in which it is found (according to the order of the list of
+    include directories), thus giving consistency to all imports within a
+    compiled script.
+    </p>
+
+    <p>
     For each module, a lexical analyzer (<span class='tt'>lexer.c</span> and
     <span class='tt'>lexer-common.cpp</span>) is created to read tokens from
     the file and a parser (see <a href='#Parsing'>parsing section</a>, below)
