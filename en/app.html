@@ -1109,18 +1109,22 @@ size_t AspMaxDataSize(const AspEngine *);</pre>
     reported in bytes.
     </p>
 
-    <h4><code>AspDump</code></h4>
+    <h4><code>AspTraceFile</code> and <code>AspDump</code></h4>
 
     <blockquote><pre>
+void AspTraceFile(AspEngine *, FILE *);
 void AspDump(const AspEngine *, FILE *);</pre>
     </blockquote>
 
     <p>
     If the Asp library has been built with the <code>ASP_DEBUG</code> macro
-    defined, the <code>AspDump</code> function is available for dumping out
-    the contents of the data memory in a human-readable form to the given C
-    file handle (e.g., <code>stdout</code> for printing to the standard
-    output). Normally, this function is not defined. Application developers
+    defined (typically enabled via the <code>ENABLE_ENGINE_DEBUG</code> CMake
+    option), the <code>AspTraceFile</code> and <code>AspDump</code> functions
+    are available. The <code>AspTraceFile</code> function may be used to direct
+    instruction trace output to the specified C file handle, the default being
+    <code>stdout</code>. The <code>AspDump</code> function dumps out the
+    contents of the data memory in a human-readable form to the given C file
+    handle. Normally, these functions are not defined. Application developers
     should only use a debug version of the library in cases where debugging
     their script-callable functions is required.
     </p>
