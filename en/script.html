@@ -523,8 +523,9 @@ $ ls -l hello.*
 
     <p>
     Asp is different from Python in that it supports a native range type. The
-    closest thing to this in Python is the built-in <code>xrange</code> class.
-    The general Asp syntax is as follows:
+    closest thing to this in Python is the built-in <code>range</code> class
+    (<code>xrange</code> in Python&nbsp;2). The general Asp syntax is as
+    follows:
     </p>
 
     <blockquote><pre>
@@ -532,20 +533,24 @@ $ ls -l hello.*
     </blockquote>
 
     <p>
-    All three components must yield an integer value. Each component may be
-    omitted, in which case a default value is supplied: 0 for
-    <code>start</code>, &plusmn;&infin; for <code>end</code> (depending on the
-    sign of <code>step</code>), and 1 for <code>step</code>. If
-    <code>step</code> is omitted, the trailing colon must also be omitted.
-    Here are some valid range expressions and their meanings:
+    When specified, each component must yield either an integer value or
+    <code>None</code>. Each component may also be omitted. When either omitted
+    or <code>None</code>, a default value is supplied: <code>-1</code> or
+    <code>0</code> for <code>start</code> (depending on the sign of the
+    <code>step</code> component), &plusmn;&infin; for <code>end</code>
+    (also depending on the sign of <code>step</code>), and <code>1</code> for
+    <code>step</code>. If <code>step</code> is omitted, the trailing colon must
+    also be omitted. Here are some valid range expressions and their meanings:
     </p>
 
     <blockquote><pre>
 ..5             # From 0 to 4
 1..10:2         # The odd numbers between 1 and 9, inclusive
-..              # A boundless range start at 0
+..              # An unbounded range starting at 0 and increasing by 1
+..:-1           # An unbounded range starting at -1 and decreasing by 1
 i..j+k          # From i to j+k-1, inclusive
-5..0:-1         # From 5 down to 1, in that order</pre>
+5..0:-1         # From 5 down to 1, in that order
+..-5:-1         # From -1 down to -4</pre>
     </blockquote>
 
     <p>
@@ -553,11 +558,18 @@ i..j+k          # From i to j+k-1, inclusive
     are also iterable, making them very useful in <code>for</code> statements.
     </p>
 
+    <p>
+    As mentioned above, Asp ranges can be specified without an <code>end</code>
+    component. Such ranges are referred to as unbounded ranges and are not
+    available in Python. Unbounded ranges can be useful, for example, when
+    creating a loop with no end condition while still incrementing an index.
+    </p>
+
     <h4>Strings</h4>
 
     <p>
     Strings are sequences of bytes, usually interpreted as ASCII characters.
-    (In Python 3, strings are composed of Unicode characters; Asp does not
+    (In Python&nbsp;3, strings are composed of Unicode characters; Asp does not
     support Unicode.) As in Python, strings are immutable. They are considered
     sequences, however, making it possible to access each character within a
     string as a separate string.
@@ -859,9 +871,10 @@ d2 = {'one': 1, 'two': 2, 'three': 3} # a dictionary with 3 kv pairs</pre>
     <p>
     Some operations rely on the comparison between objects. For example, as
     mentioned previously, the entries within sets and dictionaries rely on an
-    ordering of all objects. The first thing to consider for this sort order
-    is the type of the objects being compared. The following table lists the
-    types in their order, from least to greatest.
+    ordering of all objects that can be used as keys. Also, many object types
+    support comparison using the relational operators. The first thing to
+    consider for object sort order is the type of the objects being compared.
+    The following table lists the types in their order, from least to greatest.
     </p>
 
     <ol>
@@ -888,16 +901,18 @@ d2 = {'one': 1, 'two': 2, 'three': 3} # a dictionary with 3 kv pairs</pre>
     Within each type, the sort order depends on the type at hand. For
     Booleans, <code>False</code> comes before <code>True</code>. Integers,
     floating-point values, and symbols are treated by their numeric order. For
-    ranges, the start value is compared first, then the end value, and finally
-    the step value. Strings are compared lexicographically, character by
-    character. The individual elements of sequences (tuples and lists) are
-    compared in order from first to last. Sets and dictionaries are also
-    compared lexicographically by key first, then for dictionaries, value. For
-    all collections, comparison is defined recursively when the collections
-    contain other collections. The sort order of iterators, functions, modules,
-    and application objects is somewhat obscure, but is guaranteed to be
-    well-defined. And, of course, for type objects, the order of the types
-    listed above applies.
+    ranges, unbounded ranges come before bounded ones, and within each group
+    the start value is compared first, then the end value, and finally the step
+    value. Strings are compared lexicographically, character by character. The
+    individual elements of sequences (tuples and lists) are compared in order
+    from first to last. Sets and dictionaries are also compared
+    lexicographically by key first, then for dictionaries, value. For all
+    collections, comparison is defined recursively when the collections
+    contain other collections. Iterators do not support relational comparison;
+    they are not allowed as keys, and they cannot be compared with the
+    relational operators. The sort order of functions, modules, and application
+    objects is somewhat obscure, but is guaranteed to be well-defined. And, of
+    course, for type objects, the order of the types listed above applies.
     </p>
 
     <p>
@@ -932,7 +947,7 @@ d2 = {'one': 1, 'two': 2, 'three': 3} # a dictionary with 3 kv pairs</pre>
     <code>-</code>(subtraction), <code>*</code> (multiplication),
     <code>/</code> (normal division), <code>//</code> (floor division),
     <code>%</code> (modulo), and <code>**</code> (exponentiation). In most
-    cases, the result is as you would expect from Python 3. For example,
+    cases, the result is as you would expect from Python&nbsp;3. For example,
     dividing two integers (with normal division) results in a floating-point
     result. There is one notable exception though. Exponentiation between two
     integers always results in a floating-point value.
@@ -1168,8 +1183,11 @@ r7 = a or b or c</pre>
     The <code>in</code> and <code>not in</code> operators test for membership
     of an object within a collection. Like Python's operators of the same
     names, they return Boolean results indicating whether the left operand
-    occurs in the second operand. When strings are used, substring search is
-    performed as in Python.
+    occurs in the right operand. When strings are used, substring search is
+    performed as in Python. Also as in Python, testing an integer for
+    membership within a range object is computed mathematically and is
+    therefore very fast compared with expanding the range into a list and then
+    searching the list.
     </p>
 
     <p>
@@ -1223,26 +1241,34 @@ if `x in ...:
     For tuples and lists, a valid index value yields the selected element. In
     the case of strings, since Asp (as with Python) does not support a
     single-character type, an indexing expression simply yields a
-    single-character string. Consider these simple examples.
+    single-character string. Indexing ranges is done mathematically and is
+    therefore very fast compared with expanding the range into a list and then
+    indexing the list. Consider these simple examples.
     </p>
 
     <blockquote><pre>
 tup = ('abc', 'lmno', 'xyz')
 lst = [10, 20, 30]
+rng = 2..15:3
 r1 = tup[1]
 r2 = lst[2]
-r3 = tup[0][1]</pre>
+r3 = tup[0][1]
+r4 = rng[2]</pre>
     </blockquote>
 
     <p>
-    The values of <code>r1</code>, <code>r2</code>, and <code>r3</code> are
-    <code>'lmno'</code>, <code>30</code>, and <code>'b'</code>, respectively.
+    The values of <code>r1</code>, <code>r2</code>, <code>r3</code>, and
+    <code>r4</code> are <code>'lmno'</code>, <code>30</code>, <code>'b'</code>,
+    and <code>8</code>, respectively.
     </p>
 
     <p>
-    For convenience, negative indexes are supported, and operate from the end
+    For convenience, negative indices are supported, and operate from the end
     of a sequence, just like in Python. Therefore, an index of <code>-1</code>
     identifies the last element, <code>-2</code> the second to last, etc.
+    Note that negative indices are not allowed when indexing unbounded ranges
+    since the number of elements represented by an unbounded range is
+    theoretically infinite.
     </p>
 
     <p>
@@ -1265,8 +1291,8 @@ r3 = tup[0][1]</pre>
     Asp supports using a range as the index in the indexing syntax, indicating
     a slicing operation. This is much like Python slicing, except the syntax
     is slightly different. Slicing applies only to sequences (including
-    strings), and the result of a slicing operation is a subset of the
-    sequence being sliced. Here is an example using lists.
+    strings and ranges), and the result of a slicing operation is a subset of
+    the sequence being sliced. Here is an example using a list.
     </p>
 
     <blockquote><pre>
@@ -1276,13 +1302,15 @@ sl2 = lst[-3..-5:-1]</pre>
     </blockquote>
 
     <p>
-    The value <code>sl1</code> is <code>[3, 4]</code> and <code>sl2</code> is
-    <code>[7, 6]</code>. Notice that ranges with a negative step result in
-    elements being arranged in reverse order from the original sequence.
+    The value of <code>sl1</code> is <code>[3, 4]</code> and <code>sl2</code>
+    is <code>[7, 6]</code>. Notice that using slice ranges with a negative step
+    results in elements being arranged in reverse order from the original
+    sequence.
     </p>
 
     <p>
-    As mentioned, string slicing is also supported, as in the following example.
+    As mentioned above, string slicing is also supported, as in the following
+    example.
     </p>
 
     <blockquote><pre>
@@ -1291,8 +1319,31 @@ ss = s[2..:2]</pre>
     </blockquote>
 
     <p>
-    The resulting slice, <code>ss</code>, is assigned the value
+    The resulting string, <code>ss</code>, is assigned the value
     <code>'ceg'</code>.
+    </p>
+
+    <p>
+    Because ranges represent sequences of integers, they may be sliced as well.
+    In this case, the result is a new range. Range slicing is very efficient
+    since it uses arithmetic to compute the new range's component values.
+    Care should be taken when slicing unbounded ranges; the slicing range
+    cannot index the range being sliced with a negative value (since its size
+    cannot be determined for wraparound access).
+    </p>
+
+    <blockquote><pre>
+rng = 2..30:3
+rs1 = rng[5..:2]
+rs2 = (..20)[..:-1]</pre>
+    </blockquote>
+
+    <p>
+    Here, <code>rs1</code> is <code>17..32:6</code>, which, if expanded into a
+    list, would yield <code>[17, 23, 29]</code>. The value of <code>rs2</code>
+    is <code>19..-1:-1</code>. Notice that because the range being sliced is a
+    constant, it must be enclosed in parentheses because indexing has a higher
+    precedence than range expression syntax.
     </p>
 
     <p>
@@ -1974,25 +2025,37 @@ if module() is __main__:
     </p>
 
     <p>
+    The <code>len</code> function returns the length of a given object.
+    Depending on the type of the object, that means different things. For a
+    tuple or list, it's the number of elements. For a set or dictionary, it's
+    the number of members. For a string, the number of characters in the
+    string is returned. For a range, the number of elements that would be
+    generated if the range was expanded into a list is computed mathematically
+    and returned. If the type of the object is none of these, the
+    <code>len</code> function returns <code>1</code>.
+    </p>
+
+    <p>
+    To access the components of a range object (i.e., the start, end, and step
+    values), the <code>range_values</code> function is provided. Given a range
+    object, it returns a 3-tuple. The first and last elements in the tuple are
+    the start and step values and will always be integers. The middle element,
+    the end component, will be an integer for a bounded range and
+    <code>None</code> if the range is unbounded.
+    </p>
+
+    <p>
     As with Python, mutable objects cannot be used as keys in sets and
     dictionaries. An attempt to insert a non-key object into a set or
     dictionary will result in an error, ending the script. To prevent this from
     happening, Asp provides the <code>key</code> function, which converts its
     argument to a string if it is not a valid key. If the argument <i>is</i> a
-    key, it is simply returned as is. The conversion to string is the default
-    behaviour, but is controlled by a <code>stringize</code> parameter, which
-    is <code>True</code> by default. If this parameter is <code>False</code>,
-    the <code>key</code> function returns <code>None</code>. In either case,
-    the returned value is always a valid key.
-
-    <p>
-    The <code>len</code> function returns the length of a given object.
-    Depending on the type of the object, that means different things. For a
-    tuple or list, it's the number of elements. For a set or dictionary, it's
-    the number of members. For a string, the number of characters in the
-    string is returned. If the type of the object is none of these, the
-    <code>len</code> function returns <code>1</code>.
-    </p>
+    key, it is simply returned as is. Conversion on non-keys to string is the
+    default behaviour, but is controlled by a <code>stringize</code> parameter,
+    which is <code>True</code> by default. If this parameter is
+    <code>False</code>, the <code>key</code> function returns
+    <code>None</code>. In either case, the returned value is always a valid
+    key.
 
     <h4>Type conversion functions</h4>
 
@@ -2067,20 +2130,33 @@ if module() is __main__:
     <p>
     Use of iterators in scripts is usually done implicitly using the
     <code>for</code> statement. However, direct access to iterators is also
-    available through two built-in functions: <code>iter</code> and
-    <code>next</code>.
+    available through three built-in functions: <code>iter</code>,
+    <code>reversed</code>, and <code>next</code>.
     </p>
 
     <p>
     The <code>iter</code> function creates an iterator. It accepts a single
-    argument which is the collection to which the iterator will refer. A range
-    may also be used.
+    argument which is the collection to which the iterator will refer. A string
+    or range may also be used. If an existing iterator object is passed as the
+    argument, a copy of it is returned which retains the current position. This
+    behaviour is different than that of the Python <code>iter</code> function,
+    which returns the same object (i.e., not a copy).
     </p>
 
     <p>
-    The <code>next</code> function returns the next item in the collection (or
-    range), advancing the iterator to refer to following item. Successive
-    calls to <code>next</code> return subsequent items in the iteration. The
+    Like the <code>iter</code> function, the <code>reversed</code> function
+    creates an new iterator, but in this case, the iterator is a reversed
+    iterator, causing iteration to occur in reverse order. As with Python, the
+    <code>reversed</code> function does not accept another iterator as its
+    argument. However, a reversed iterator, like a normal iterator, may be
+    passed to the <code>iter</code> function to make a copy of it, including
+    its current position.
+    </p>
+
+    <p>
+    The <code>next</code> function returns the next item in the collection,
+    advancing the iterator to refer to the next item. Successive calls to
+    <code>next</code> return subsequent items in the iteration. The
     <code>next</code> function can be called with one or two arguments. The
     first is the iterator. An optional second parameter, called
     <code>end</code>, allows the caller to specify a value to be returned in

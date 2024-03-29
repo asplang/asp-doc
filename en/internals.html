@@ -2336,11 +2336,19 @@
 
     <p>
     Debug code resides in the <span class='tt'>debug.c</span> file and is
-    excluded from release builds. It defines the <code>AspDump</code> function
-    which can be used for debugging purposes during development. It dumps the
-    entire content of the data area and the engine state to the specified file
-    descriptor in a human readable form. The data entry output is compressed
-    when multiple adjacent free entries are encountered.
+    excluded from release builds. It defines the <code>AspDump</code> and
+    <code>AspTraceFile</code> functions, both of which can be used for
+    debugging purposes during development. The <code>AspDump</code> function
+    dumps the entire content of the data area and the engine state to the
+    specified file descriptor in a human readable form. The data entry output
+    is compressed when multiple adjacent free entries are encountered.
+    </p>
+
+    <p>
+    The <code>AspTraceFile</code> function may be used to redirect the debug
+    trace to another file handle. The standalone application has options to
+    redirect the dump and trace outputs to files instead of the standard
+    output, and it uses these functions to do so.
     </p>
 
     <h2>Compiler</h2>

@@ -1200,10 +1200,11 @@ bool AspIsAppObject(const AspDataEntry *);</pre>
     <code>AspIsFloat</code>, <code>AspIsSymbol</code>, <code>AspIsRange</code>,
     <code>AspIsString</code>, <code>AspIsTuple</code>, <code>AspIsList</code>,
     <code>AspIsSet</code>, <code>AspIsDictionary</code>,
-    <code>AspIsAppIntegerOject</code>, <code>AspIsAppPointerOject</code>, and
-    <code>AspIsType</code>, all corresponding to the applicable type in the
-    name. Each one returns <code>true</code> if the argument is of the
-    applicable type.
+    <code>AspIsIterator</code>, <code>AspIsFunction</code>,
+    <code>AspIsModule</code>, <code>AspIsAppIntegerOject</code>,
+    <code>AspIsAppPointerOject</code>, and <code>AspIsType</code>, all
+    corresponding to the applicable type in the name. Each one returns
+    <code>true</code> if the argument is of the applicable type.
     </p>
 
     <p>
@@ -1227,7 +1228,7 @@ bool AspFloatValue(const AspDataEntry *, double *);
 bool AspSymbolValue(const AspDataEntry *, int32_t *);
 bool AspRangeValues
     (AspEngine *, const AspDataEntry *,
-     int32_t *start, int32_t *end, int32_t *step);
+     int32_t *start, int32_t *end, int32_t *step, bool *bounded);
 bool AspStringValue
     (AspEngine *, const AspDataEntry *,
      size_t *size, char *buffer, size_t index, size_t bufferSize);
@@ -1253,10 +1254,17 @@ bool AspAppPointerObjectValues
     <code>AspRangeValues</code>, and <code>AspStringValue</code> functions are
     provided. All these functions return <code>true</code> to indicate success.
     In the case of the first three, the sought value is deposited at the given
-    address. Since for ranges, there are three values, three addresses are
-    required, one for each component of the range. Note that it is possible to
-    extract an integer or floating-point value from objects of Boolean,
-    integer, or floating-point type. For example, using
+    address. Since ranges consist of multiple values, three integer addresses,
+    <code>start</code>, <code>end</code>, and <code>step</code>, are required
+    to receive the components of the range, and an additional Boolean address,
+    <code>bounded</code> is required to indicate whether the <code>end</code>
+    value is used. (Note that the <code>bounded</code> parameter was added in
+    Asp version 1.1.)
+    </p>
+
+    <p>
+    Note that it is possible to extract an integer or floating-point value from
+    objects of Boolean, integer, or floating-point type. For example, using
     <code>AspFloatValue</code> on a Boolean object will result in a value of
     either <code>0.0</code> or <code>1.0</code>, depending on whether the
     object was <code>False</code> or <code>True</code>, respectively. Calling
@@ -1364,9 +1372,10 @@ AspDataEntry *AspToRepr(AspEngine *, const AspDataEntry *value);</pre>
     <h3 id='CollectionInformation'>Collection information</h3>
 
     <blockquote><pre>
-unsigned AspCount(const AspDataEntry *);
-AspDataEntry *AspElement(AspEngine *, AspDataEntry *sequence, int index);
-char AspStringElement(AspEngine *, const AspDataEntry *str, int index);
+AspRunResult AspCount(AspEngine *, const AspDataEntry *, int32_t *count);
+AspDataEntry *AspElement(AspEngine *, AspDataEntry *sequence, int32_t index);
+int32_t AspRangeElement(AspEngine *, const AspDataEntry *range, int32_t index);
+char AspStringElement(AspEngine *, const AspDataEntry *str, int32_t index);
 AspDataEntry *AspFind
     (AspEngine *, AspDataEntry *tree, const AspDataEntry *key);
 AspDataEntry *AspNext(AspEngine *, AspDataEntry *iterator);</pre>
@@ -1375,22 +1384,44 @@ AspDataEntry *AspNext(AspEngine *, AspDataEntry *iterator);</pre>
     <p>
     Asp supports a few types of collections: tuples, lists, sets, and
     dictionaries. Strings can also be treated as collections (of characters)
-    in some cases. The application function API includes a few functions for
-    getting information from these types of objects.
+    in some cases. Ranges represent sequences of integer values, and can
+    therefore sometimes be treated as collections. The application function API
+    includes a few functions for getting information from these types of
+    objects.
     </p>
 
     <p>
-    <code>AspCount</code> returns the number of items inside the given object.
-    For a collection, this is the number of items in the collection. For all
-    other object types, it returns <code>1</code>.
+    <code>AspCount</code> yields the number of items inside the given object.
+    For a collection, this is the number of items in the collection. Strings
+    are treated like collections in this regard, returning the number of
+    characters in the string. For ranges, the number of elements that would be
+    generated if the range was expanded into a list is computed. For all other
+    object types, the function returns <code>1</code>.
+    </p>
+
+    <p>
+    It should be noted that prior to version 1.1, the <code>AspCount</code>
+    function's signature was different, as indicated below. If application
+    code must support multiple versions of Asp, the <code>ASP_VERSION</code>
+    macro can be used to conditionally compile code for both versions.
+    </p>
+
+    <blockquote><pre>
+unsigned AspCount(const AspDataEntry *); /* old signature */</pre>
+    </blockquote>
+
+    <p>
+    The reason for the change was to accommodate the fact that attempting to
+    return the number of elements in an unbounded range cannot be accomplished.
+    In this case, an error is indicated in the return value.
     </p>
 
     <p>
     To access the element of a sequence (i.e., a tuple or list, but not a
-    string), the <code>AspElement</code> function is used, which accepts an
-    index value and returns a pointer to the data entry at the indicated
-    position within the sequence. It does not increment the use count of the
-    returned entry. Normally, indices are zero-based, ranging from
+    string or range), the <code>AspElement</code> function is used, which
+    accepts an index value and returns a pointer to the data entry at the
+    indicated position within the sequence. It does not increment the use count
+    of the returned entry. Normally, indices are zero-based, ranging from
     <code>0</code> to one less than the number of elements. However, as in the
     Asp language, negative indices are allowed in the range <code>-1</code> to
     the number of elements expressed as a negative integer. An index value of
@@ -1399,14 +1430,18 @@ AspDataEntry *AspNext(AspEngine *, AspDataEntry *iterator);</pre>
     </p>
 
     <p>
-    Because strings consist of characters, not objects, the
-    <code>AspElement</code> function does not handle them. Instead, the
-    <code>AspStringElement</code> function is provided for that purpose.
-    Instead of returning a data entry pointer, it returns the character found
-    at the indicated position. The index argument works in the same way as
-    with <code>AspElement</code>, permitting the use of negative index values.
-    An out-of-range index value causes the function to return the null
-    character (<code>'\0'</code>).
+    Unlike tuples and lists, strings and ranges do not contain objects. Strings
+    consist of characters and ranges represent sequences of integers.  Because
+    of this, the <code>AspElement</code> function does not handle either of
+    them. Instead, the <code>AspStringElement</code> function is provided for
+    accessing the characters of a string, and the <code>AspRangeElement</code>
+    function for accessing the integer members of a range. Instead of returning
+    a data entry pointer, they return the character or integer at the indicated
+    position, respectively. The index argument works in the same way as with
+    <code>AspElement</code>, permitting the use of negative index values. An
+    out-of-range index value causes <code>AspStringElement</code> to return the
+    null character (<code>'\0'</code>), and <code>AspRangeElement</code> to
+    return zero.
     </p>
 
     <p>
@@ -1444,7 +1479,8 @@ AspDataEntry *AspNewRange
 AspDataEntry *AspNewUnboundedRange
     (AspEngine *, int32_t start, int32_t step);
 AspDataEntry *AspNewString(AspEngine *, const char *buffer, size_t size);
-AspDataEntry *AspNewIterator(AspEngine *, AspDataEntry *iterable);
+AspDataEntry *AspNewIterator
+    (AspEngine *, AspDataEntry *iterable, bool reserved);
 AspDataEntry *AspNewAppIntegerObject
     (AspEngine *, int16_t appType, int32_t value,
      void (*destructor)(AspEngine *, int16_t appType, int32_t value));
@@ -1484,13 +1520,14 @@ AspDataEntry *AspNewType(AspEngine *, const AspDataEntry *object);</pre>
     </p>
 
     <p>
-    For <code>AspNewIterator</code>, the iterable object is specified. This
-    may be any of the collection types, including a string, but may also be a
-    range. Use <code>AspNext</code> with the new iterator to iterate through
-    each value. Iterators can also be tested to determine whether they are at
-    their end by converting them to a Boolean value using
-    <code>AspIsTrue</code>. A value of <code>false</code> indicates the
-    iterator has reached its end.
+    For <code>AspNewIterator</code>, the iterable object is specified, along
+    with a Boolean indicating whether the iterator should be a normal (forward)
+    iterator or a reversed iterator. The iterable object may be any of the
+    collection types, a string, or a range. Use <code>AspNext</code> with the
+    new iterator to iterate through each value. Iterators can also be tested to
+    determine whether they are at their end by converting them to a Boolean
+    value using <code>AspIsTrue</code>. A value of <code>false</code> indicates
+    the iterator has reached its end.
     </p>
 
     <p>
@@ -1570,9 +1607,9 @@ bool AspListAppend
     (AspEngine *, AspDataEntry *list, AspDataEntry *value, bool take);
 bool AspListInsert
     (AspEngine *, AspDataEntry *list,
-     int index, AspDataEntry *value, bool take);
+     int32_t index, AspDataEntry *value, bool take);
 bool AspListErase
-    (AspEngine *, AspDataEntry *list, int index);</pre>
+    (AspEngine *, AspDataEntry *list, int32_t index);</pre>
     </blockquote>
 
     <p>
