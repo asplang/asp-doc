@@ -906,7 +906,7 @@ AspRunResult AspStep(AspEngine *);</pre>
         <td><code>IteratorAtEnd</code></td>
         <td>
         An attempt to use the value referred to by an iterator finds that the
-        iterator has advanced to the end of the collection. This should not
+        iterator has advanced to the end of the iterable. This should not
         happen when using the iterators provided by the <code>for</code>
         statement.
         </td>
@@ -1193,6 +1193,7 @@ bool AspIsIntegral(const AspDataEntry *);
 bool AspIsNumber(const AspDataEntry *);
 bool AspIsNumeric(const AspDataEntry *);
 bool AspIsSequence(const AspDataEntry *);
+bool AspIsIterator(const AspDataEntry *);
 bool AspIsAppObject(const AspDataEntry *);</pre>
     </blockquote>
 
@@ -1204,11 +1205,12 @@ bool AspIsAppObject(const AspDataEntry *);</pre>
     <code>AspIsFloat</code>, <code>AspIsSymbol</code>, <code>AspIsRange</code>,
     <code>AspIsString</code>, <code>AspIsTuple</code>, <code>AspIsList</code>,
     <code>AspIsSet</code>, <code>AspIsDictionary</code>,
-    <code>AspIsIterator</code>, <code>AspIsFunction</code>,
-    <code>AspIsModule</code>, <code>AspIsAppIntegerOject</code>,
-    <code>AspIsAppPointerOject</code>, and <code>AspIsType</code>, all
-    corresponding to the applicable type in the name. Each one returns
-    <code>true</code> if the argument is of the applicable type.
+    <code>AspIsForwardIterator</code>, <code>AspIsReverseIterator</code>,
+    <code>AspIsFunction</code>, <code>AspIsModule</code>,
+    <code>AspIsAppIntegerOject</code>, <code>AspIsAppPointerOject</code>, and
+    <code>AspIsType</code>, all corresponding to the applicable type in the
+    name. Each one returns <code>true</code> if the argument is of the
+    applicable type.
     </p>
 
     <p>
@@ -1219,7 +1221,9 @@ bool AspIsAppObject(const AspDataEntry *);</pre>
     <code>AspIsNumeric</code> returns <code>true</code> for Booleans,
     integers, and floating-point values. <code>AspIsSequence</code> returns
     <code>true</code> for tuples and lists, but not for strings, even though in
-    some respects, strings can be treated like sequences. And finally,
+    some respects, strings can be treated like sequences. The
+    <code>AspIsIterator</code> function returns <code>true</code> if the
+    argument is either a forward or reverse iterator. And finally,
     <code>AspIsAppObject</code> returns <code>true</code> if the object is
     either of the two types of application object: integer or pointer.
     </p>
@@ -1389,8 +1393,8 @@ AspDataEntry *AspNext(AspEngine *, AspDataEntry *iterator);</pre>
     Asp supports a few types of collections: tuples, lists, sets, and
     dictionaries. Strings can also be treated as collections (of characters)
     in some cases. Ranges represent sequences of integer values, and can
-    therefore sometimes be treated as collections. The application function API
-    includes a few functions for getting information from these types of
+    therefore sometimes be treated like collections. The application function
+    API includes a few functions for getting information from these types of
     objects.
     </p>
 
@@ -1459,15 +1463,15 @@ unsigned AspCount(const AspDataEntry *); /* old signature */</pre>
 
     <p>
     The <code>AspNext</code> function works with an iterator to yield the next
-    value in a collection. Successive calls to <code>AspNext</code> return
-    subsequent values in the collection. Unlike the functions described above,
-    the caller is responsible for unreferencing the returned object or
-    otherwise dealing with its ownership. This is because in some cases (like
-    with iterating over a range or a string), a new object is created. In the
-    cases where an existing object is returned, <code>AspNext</code>
-    increments the use count so that treatment of the returned object is
-    consistent. If the iterator is advanced to the end of the collection,
-    <code>AspNext</code> returns a null pointer.
+    value in an iterable (i.e., a collection-like object). Successive calls to
+    <code>AspNext</code> return subsequent values in the iterable. Unlike the
+    functions described above, the caller is responsible for unreferencing the
+    returned object or otherwise dealing with its ownership. This is because in
+    some cases (like with iterating over a range or a string), a new object is
+    created. In the cases where an existing object is returned,
+    <code>AspNext</code> increments the use count so that treatment of the
+    returned object is consistent. If the iterator is advanced to the end of
+    the iterable, <code>AspNext</code> returns a null pointer.
     </p>
 
     <h3 id='ObjectCreation'>Object creation</h3>
@@ -1526,12 +1530,22 @@ AspDataEntry *AspNewType(AspEngine *, const AspDataEntry *object);</pre>
     <p>
     For <code>AspNewIterator</code>, the iterable object is specified, along
     with a Boolean indicating whether the iterator should be a normal (forward)
-    iterator or a reversed iterator. The iterable object may be any of the
+    iterator or a reverse iterator. The iterable object may be any of the
     collection types, a string, or a range. Use <code>AspNext</code> with the
     new iterator to iterate through each value. Iterators can also be tested to
     determine whether they are at their end by converting them to a Boolean
     value using <code>AspIsTrue</code>. A value of <code>false</code> indicates
     the iterator has reached its end.
+    </p>
+
+    <p>
+    In addition to specifying an iterable object, an existing iterator may be
+    passed as the <code>AspNewIterator</code> function's <code>iterable</code>
+    parameter. In this case, a copy of the existing iterator is returned which
+    retains its current position. When the <code>reversed</code> parameter is
+    set to <code>true</code>, the type of iterator returned depends on the type
+    of iterator passed, as the direction is simply changed to be the opposite
+    of the original iterator.
     </p>
 
     <p>

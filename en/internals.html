@@ -504,12 +504,6 @@
         <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       <tr>
-        <td>Iterator</td>
-        <td style='text-align: center;'><code>0x0E</code></td><td>1</td>
-        <td>&check;</td><td>&check;</td><td>&check;</td><td></td>
-        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
-      </tr>
-      <tr>
         <td>Function</td>
         <td style='text-align: center;'><code>0x0F</code></td><td>1</td>
         <td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td>
@@ -519,6 +513,18 @@
         <td>Module</td>
         <td style='text-align: center;'><code>0x10</code></td><td>1</td>
         <td>&check;</td><td>&check;</td><td>&check;</td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>ReverseIterator</td>
+        <td style='text-align: center;'><code>0x15</code></td><td>1</td>
+        <td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td>ForwardIterator</td>
+        <td style='text-align: center;'><code>0x16</code></td><td>1</td>
+        <td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td>
         <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       <tr>
@@ -930,6 +936,12 @@
     <h4 id='Iterators'>Iterators</h4>
 
     <p>
+    Iterators come in two types: forward and reverse. The data entry format is
+    identical between the two, except for their type. In what follows, the
+    generic term Iterator will be used to refer to both.
+    </p>
+
+    <p>
     Iterators are used to traverse through a range of values defined by one of
     the following items: range, sequence (including a string), set, or
     dictionary<a href='#Note-NoNamespaceIterator'><sup>*</sup></a>. This
@@ -960,11 +972,11 @@
     Finally, range iterators require the creation of an integer to maintain
     the current value. An index to this integer is stored in word 1 as
     expected, but because the integer is considered part of the iterator (not
-    part of the iterable), it must be cleaned up when the iterator is freed.
-    Therefore, a bit flag is set to indicate the need for cleanup. The integer
-    is cleaned up either when the iterator is advanced to the end of the
-    range, or in the un-reference logic if the iterator is dropped before that
-    happens.
+    part of the iterable), it must be cleaned up when the iterator not longer
+    needs it. Therefore, a bit flag is set to indicate the need for cleanup.
+    The integer is cleaned up either when the iterator is advanced to the end
+    of the range, or in the un-reference logic if the iterator is dropped
+    before that happens.
     </p>
 
     <blockquote id='Note-NoNamespaceIterator'><sup>*</sup><small>
@@ -1581,6 +1593,14 @@
     </p>
 
     <p>
+    Iterators may be compared, even if they are of differing types (i.e.,
+    forward vs. reverse). Only equality comparison is allowed; iterators cannot
+    be compared relationally. Two iterators are considered equal if they refer
+    to the same iterable and are at the same position, regardless of their
+    direction of travel.
+    </p>
+
+    <p>
     The <code>IN</code> and <code>NIN</code> instructions are usually used to
     determine whether an object exists in a collection. However, a substring
     search is supported (like Python) when both operands are strings.
@@ -1710,8 +1730,12 @@
     <p>
     The <code>SITER</code> instruction starts an iteration by creating an
     iterator. It pops the iterable (the object being iterated over) off the
-    stack, creates an appropriate Iterator entry by calling
-    <code>AspIteratorCreate</code>, and then pushes it onto the stack.
+    stack, creates an appropriate ForwardIterator entry by calling
+    <code>AspIteratorCreate</code>, and then pushes it onto the stack. Note
+    that <code>SITER</code> cannot create a reverse iterator. Scripts can use
+    the <code>reversed</code> system function to create a reverse iterator
+    when needed. All the other operations on iterators handle both forward and
+    reverse iterators as well.
     </p>
 
     <p>
@@ -1728,7 +1752,9 @@
     The <code>NITER</code> instruction advances an iterator to its next
     position within the iteration. The iterator is accessed on the top of the
     stack and is left there. The <code>AspIteratorNext</code> function is
-    called to perform the advancing logic.
+    called to perform the advancing logic. Forward iterators are advanced to
+    the next item, and reverse iterators are advanced to the previous item, as
+    expected.
     </p>
 
     <p>
@@ -1744,7 +1770,8 @@
     library iterator functions that provide low-level iterator control from a
     script. The library support is defined in
     <span class='tt'>lib-iter.c</span>. Iteration is supported for ranges,
-    strings, tuples, lists, sets, and dictionaries.
+    strings, tuples, lists, sets, and dictionaries, in both forward and reverse
+    directions, according to the type of the iterator.
     </p>
 
     <p>
@@ -1759,6 +1786,15 @@
     member. Likewise, iteration over sets and dictionaries uses the Node
     entry. String iteration also uses a count in the Iterator entry to keep
     track of the current character within a String Fragment entry.
+    </p>
+
+    <p>
+    In addition to the above iterables, the <code>AspIteratorCreate</code>
+    function also accepts an existing iterator. In this case, a copy of the
+    iterator is made which retains the passed iterator's current position.
+    If the <code>reversed</code> parameter is <code>true</code>, the direction
+    of the copied iterator is changed. So, requesting a reversed iterator of
+    a reverse iterator actually yields a forward iterator.
     </p>
 
     <h4 id='JumpInstructions'>Jump instructions</h4>
@@ -2221,8 +2257,9 @@
 
     <p>
     The <code>IDX</code> and <code>IDXA</code> instructions are used for
-    finding an item in a collection. When the collection is a sequence and the
-    index value is a range, a slice operation is performed. The
+    finding an item in a collection. The <code>IDX</code> instruction also
+    supports ranges and strings. When the collection is a sequence or range and
+    the index value is a range, a slice operation is performed. The
     <code>IDX</code> instruction ends by pushing the selected item (or
     sequence of items in the case of a slice) onto the stack, whereas the
     <code>IDXA</code> instruction pushes <q>addresses</q> (or a sequence of
@@ -2233,8 +2270,8 @@
     The instruction starts by popping the index/key entry and the collection
     entry off the stack, in that order. The following paragraphs describe the
     operation as it applies to each type of supported collection. The
-    collection can be a string, tuple, list, or dictionary. Sets cannot be
-    indexed.
+    collection can be a range, string, tuple, list, or dictionary. Sets cannot
+    be indexed.
     </p>
 
     <p>
@@ -2266,6 +2303,12 @@
     index is an integer), is a newly created single-character string. When a
     slicing operation is performed (when the index is a range), the result is
     a newly created string containing all the selected characters.
+    </p>
+
+    <p>
+    Finally, ranges may be indexed or sliced, according to the indexing
+    operand. Simple indexing yields an integer, while slicing produces a new
+    range object, the components of which are computed mathematically.
     </p>
 
     <h4>Member operations</h4>
