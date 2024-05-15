@@ -4,7 +4,7 @@ Asp scripting platform documentation
 Information available at:
 
 - Web site: https://www.asplang.org/
-- E-mail: asplang@proton.me
+- E-mail: info@asplang.org
 - Source respositories: https://bitbucket.org/asplang/
 - Online documentation: https://asplang.bitbucket.io/
 - License: See `LICENSE.txt` in the source respository
