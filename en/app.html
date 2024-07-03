@@ -400,7 +400,11 @@ def delete_files_by_time \
       data area.
       </li>
       <li>
-      Identify the code to run in the engine. This can be done in one of two
+      Optionally call <code>AspSetCodePaging</code> to enable script code
+      paging.
+      </li>
+      <li>
+      Identify the code to run in the engine. This can be done in one of three
       ways.
         <ol type='a'>
           <li>
@@ -412,6 +416,12 @@ def delete_files_by_time \
           <li>
           Make a single call to <code>AspSealCode</code> to identify the
           location and size of an external block of script executable code.
+          </li>
+          <li>
+          Assuming that code paging has been enabled via
+          <code>AspSetCodePaging</code>, make a single call to
+          <code>AspPageCode</code> to identify the location of an external
+          resource where pages of script executable code can be read.
           </li>
         </ol>
       </li>
@@ -445,8 +455,9 @@ def delete_files_by_time \
 
     <p>
     The following functions prepare the engine to execute a script:
-    <code>AspInitialize</code>, <code>AspAddCode</code>, <code>AspSeal</code>,
-    <code>AspSealCode</code>, <code>AspSetArguments</code> (and the related
+    <code>AspInitialize</code>, <code>AspSetCodePaging</code>,
+    <code>AspAddCode</code>, <code>AspSeal</code>, <code>AspSealCode</code>,
+    <code>AspPageCode</code>, <code>AspSetArguments</code> (and the related
     <code>AspSetArgumentsString</code>), <code>AspRestart</code>, and
     <code>AspReset</code>.
     </p>
@@ -631,6 +642,89 @@ AspAddCodeResult AspSealCode
         </td>
       </tr>
     </table>
+
+    <h4><code>AspSetCodePaging</code> and <code>AspPageCode</code></h4>
+
+    <blockquote><pre>
+AspRunResult AspSetCodePaging
+    (AspEngine *, uint8_t pageCount, size_t pageSize, AspCodePageReader);
+AspAddCodeResult AspPageCode(AspEngine *, void *id);</pre>
+    </blockquote>
+
+    <p>
+    In addition to the two methods of preparing for script execution described
+    above, a third method can be used that defers the loading of code until it
+    is needed during execution. This method, termed <q>code paging</q>, is
+    useful when the size of a script could exceed the size of the defined code
+    area. Instead of storing the entire script in the code area, the code area
+    is split into one or more fixed-sized pages for caching blocks of code
+    during execution.
+    </p>
+
+    <p>
+    To enable code paging, call the <code>AspSetCodePaging</code> function,
+    specifying the number of pages, the size of each page, and a routine that
+    will be called during execution to read in pages of code. The page reading
+    routine must be supplied by the application and must be compatible with the
+    the <code>AspCodePageReader</code> function pointer declaration as given
+    below. The <code>AspSetCodePaging</code> function may also be used to
+    disable code paging by specifying zero for either the
+    <code>pageCount</code> or <code>pageSize</code>, or both. Once set, the
+    paging state (enabled or disabled) remains unchanged; there is no need to
+    call <code>AspSetCodePaging</code> before running each script. Also note
+    that the <code>pageSize</code> must be at least 12 bytes (for
+    implementation reasons), although it is expected it will normally be much
+    larger than this.
+    </p>
+
+    <blockquote><pre>
+typedef AspRunResult (*AspCodePageReader)
+    (void *id, uint32_t offset, size_t *size, void *codePage);</pre>
+    </blockquote>
+
+    <p>
+    Assuming code paging is enabled, instead of loading the script (e.g., with
+    <code>AspAddCode</code>, etc.), the location of the resource containing the
+    code (i.e., the executable <q><span class='tt'>.aspe</span></q> file) is
+    identified by calling <code>AspPageCode</code>. It is up to the application
+    to determine how script code resources are identified. For example, if the
+    target system supports files, the identifier could be a C <code>FILE</code>
+    pointer or a POSIX file handle. Whatever is supplied in the call to
+    <code>AspPageCode</code> is simply passed to calls of the supplied read
+    function, so the read function will typically cast the void pointer
+    <code>id</code> argument to the applicable type.
+    </p>
+
+    <p>
+    The read routine supplied by the application will be called by the engine
+    when a block of code is needed during execution. The read function is
+    called with the <code>id</code> argument identifying the resource to read
+    from (e.g., file), the byte <code>offset</code> into the resource, the
+    requested page <code>size</code>, passed by reference, and the destination
+    <code>codePage</code> where the content should be stored. If the read
+    returns fewer bytes than requested, the <code>size</code> should be updated
+    to reflect the actual number of bytes read. (The engine uses this update to
+    detect the end of the code.) This is also applicable if the requested
+    <code>offset</code> is past the end of the content, in which case the
+    <code>size</code> should be updated to <code>0</code>. In all these cases
+    (full page read, partial page read, and no data), the function should
+    return <code>AspRunResult_OK</code>. Only if there is a problem with the
+    code resource identifier or the resource itself (e.g., invalid file
+    descriptor, file access error, etc.) should the function return something
+    else (e.g., <code>AspRunResult_Application</code>). Returning something
+    other than <code>AspRunResult_OK</code> will result in the script execution
+    ending in error.
+    </p>
+
+    <p>
+    The application developer is encouraged to choose page count and size
+    values that are appropriate for the system at hand. During execution, after
+    all the cache pages have been used, the engine will replace the least
+    recently used cache page when reading a new page in. Depending on the speed
+    at which pages can be read, using a sufficient number of pages can improve
+    performance, especially in scripts that use a lot of nested function calls,
+    or in other cases that may cause the program counter to jump around a lot.
+    </p>
 
     <h4 id='SettingArguments'><code>AspSetArguments</code> and
     <code>AspSetArgumentsString</code></h4>
