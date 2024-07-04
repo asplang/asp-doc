@@ -670,7 +670,7 @@ AspAddCodeResult AspPageCode(AspEngine *, void *id);</pre>
     below. The <code>AspSetCodePaging</code> function may also be used to
     disable code paging by specifying zero for either the
     <code>pageCount</code> or <code>pageSize</code>, or both. Once set, the
-    paging state (enabled or disabled) remains unchanged; there is no need to
+    paging state (enabled or disabled) remains in effect; there is no need to
     call <code>AspSetCodePaging</code> before running each script. Also note
     that the <code>pageSize</code> must be at least 12 bytes (for
     implementation reasons), although it is expected it will normally be much
@@ -724,6 +724,17 @@ typedef AspRunResult (*AspCodePageReader)
     at which pages can be read, using a sufficient number of pages can improve
     performance, especially in scripts that use a lot of nested function calls,
     or in other cases that may cause the program counter to jump around a lot.
+    </p>
+
+    <p>
+    A small implementation detail should be noted. To manage the cached code
+    pages, a small amount of space is stolen from the end of the data area. The
+    amount of space taken is equal to the specified page count times the size
+    of each cached page record, which is currently 2 bytes. This reallocation
+    of data space should not have any material effect on script execution if
+    sufficient margin is included in the size of the data area. Since the size
+    of a single data entry is 16 bytes, a page count of 8 will reduce the data
+    area by one data entry, and 16 pages will take away two data entries, etc.
     </p>
 
     <h4 id='SettingArguments'><code>AspSetArguments</code> and
