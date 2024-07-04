@@ -921,8 +921,8 @@ AspRunResult AspStep(AspEngine *);</pre>
         <td><code>BeyondEndOfCode</code></td>
         <td>
         In reading the next instruction or its operand(s), the program counter
-        would advance beyond the end of the loaded code. This may indicate
-        memory corruption in the code area, or a bug in the Asp compiler.
+        would advance beyond the end of the code. This may indicate memory
+        corruption in the code area, or a bug in the Asp compiler.
         </td>
       </tr>
       <tr>
@@ -1114,7 +1114,7 @@ size_t AspProgramCounter(const AspEngine *);</pre>
     values indicating whether the engine is ready to run a script, currently
     running a script, or either one, respectively. The script's program
     counter may be queried using the <code>AspProgramCounter</code> function.
-    The value returned is a byte offset into the code area.
+    The value returned is a byte offset into the code.
     </p>
 
     <h4><code>AspLowFreeCount</code></h4>
@@ -1138,6 +1138,28 @@ size_t AspLowFreeCount(const AspEngine *);</pre>
     If needed, the value returned by this routine can be converted to bytes by
     multiplying it by the value returned by the <code>AspDataEntrySize</code>
     function.
+    </p>
+
+    <h4><code>AspCodePageReadCount</code></h4>
+
+    <blockquote><pre>
+size_t AspCodePageReadCount(AspEngine *, bool reset);</pre>
+    </blockquote>
+
+    <p>
+    When code paging is enabled, the <code>AspCodePageReadCount</code> function
+    returns the number of times the read function (specified in the call to
+    <code>AspSetCodePaging</code>) has been called since the start of
+    execution, or since the previous call to <code>AspCodePageReadCount</code>
+    with <code>reset</code> set to <code>true</code>. In the unlikely event
+    that the read count reaches its maximum value before being reset, it is no
+    longer incremented until a reset occurs.
+    </p>
+
+    <p>
+    The read count can be used to assess the performance of various choices of
+    page size and count when code paging is enabled. If code paging is
+    disabled, <code>AspCodePageReadCount</code> will always return zero.
     </p>
 
     <h3>Miscellaneous functions</h3>
