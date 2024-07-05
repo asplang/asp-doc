@@ -732,9 +732,9 @@ typedef AspRunResult (*AspCodePageReader)
     amount of space taken is equal to the specified page count times the size
     of each cached page record, which is currently 2 bytes. This reallocation
     of data space should not have any material effect on script execution if
-    sufficient margin is included in the size of the data area. Since the size
-    of a single data entry is 16 bytes, a page count of 8 will reduce the data
-    area by one data entry, and 16 pages will take away two data entries, etc.
+    sufficient margin is included in the size of the data area. For example,
+    if the maximum number of 255 pages is specified, the data area will be
+    reduced by a total of 510 bytes, which is equivalent to 32 data entries.
     </p>
 
     <h4 id='SettingArguments'><code>AspSetArguments</code> and
