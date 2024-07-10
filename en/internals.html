@@ -3323,7 +3323,7 @@ else:
     can be a simple target (variable, indexing expression, or member
     selection), or it can be a tuple (of arbitrary depth) of targets. The code
     for both simple targets and tuples has already been covered above
-    <a href='#SimpleExpressionCode'>simple expressions</a>). The code emitted
+    (<a href='#SimpleExpressionCode'>simple expressions</a>). The code emitted
     for a target expression is a combination of one or both, and the
     instructions emitted for simple targets are of the <q>address</q> variety
     (i.e., <code>LDA</code>, <code>IDXA</code>, or <code>MEMA</code>).
@@ -3535,11 +3535,16 @@ else:
     </p>
 
     <p>
-    The code emitted by a <code>return</code> statement is very simple and
-    consists of a return value expression (which may be a tuple) followed by
-    the <code>RET</code> instruction. If no return value is specified, a
+    The code emitted by a <code>return</code> statement is normally very simple
+    and consists of a return value expression (which may be a tuple) followed
+    by the <code>RET</code> instruction. If no return value is specified, a
     <code>PUSHN</code> instruction is emitted in lieu of the missing
-    expression to return the default <code>None</code> value.
+    expression to return the default <code>None</code> value. In the case that
+    the <code>return</code> statement is nested inside one or more
+    <code>for</code> statements, the iterators that the <code>for</code>
+    statement(s) maintain on the stack must be popped first, so the applicable
+    number of <code>POP</code> instructions are emitted for this purpose before
+    the return value expression and <code>RET</code> instruction.
     </p>
 
     <p>
