@@ -1085,6 +1085,15 @@ AspRunResult AspStep(AspEngine *);</pre>
         </td>
       </tr>
       <tr>
+        <td><code>Call</code></td>
+        <td>
+        The special value returned by the <code>AspCall</code> function to
+        cause subsequent invocation of the target function. Script-callable
+        functions should not use this return value explicitly, but instead use
+        the value returned by <code>AspCall</code>.
+        </td>
+      </tr>
+      <tr>
         <td><code>InternalError</code></td>
         <td>
         An unexpected condition has occurred in the engine, likely caused by
@@ -1961,7 +1970,7 @@ void AspUnref(AspEngine *, AspDataEntry *object);</pre>
     <code>AspStep</code>.
     </p>
 
-    <h3>Argument access</h3>
+    <h3>Script argument access</h3>
 
     <blockquote><pre>
 AspDataEntry *AspArguments(AspEngine *);</pre>
@@ -1993,7 +2002,7 @@ AspDataEntry *AspArguments(AspEngine *);</pre>
     arguments into meaningful values.
     </p>
 
-    <h3><code>AspContext</code> and <code>AspAgain</code></h3>
+    <h3 id='Again'><code>AspContext</code> and <code>AspAgain</code></h3>
 
     <blockquote><pre>
 void *AspContext(const AspEngine *);
@@ -2107,6 +2116,175 @@ bool AspAgain(const AspEngine *);</pre>
     integrity of the system.
     </p>
 
+    <h3>Calling script functions from application functions</h3>
+
+    <blockquote><pre>
+bool AspAddPositionalArgument
+    (AspEngine *, AspDataEntry *value, bool take);
+bool AspAddNamedArgument
+    (AspEngine *, int32_t symbol, AspDataEntry *value, bool take);
+bool AspAddIterableGroupArgument
+    (AspEngine *, AspDataEntry *value, bool take);
+bool AspAddDictionaryGroupArgument
+    (AspEngine *, AspDataEntry *value, bool take);
+void AspClearFunctionArguments(AspEngine *);
+AspRunResult AspCall(AspEngine *, AspDataEntry *function);
+AspRunResult AspReturnValue(AspEngine *, AspDataEntry **returnValue);
+int32_t AspNextSymbol(AspEngine *);
+AspDataEntry *AspLoadLocal(AspEngine *, int32_t symbol);
+AspRunResult AspStoreLocal
+    (AspEngine *, int32_t symbol, AspDataEntry *value, bool take);</pre>
+    </blockquote>
+
+    <p>
+    Asp provides the ability for script-callable application functions to call
+    other functions, including those that are defined in the currently running
+    script. Typically, the target function is passed as an argument from the
+    script into the application function. An example would be an Asp-callable
+    sort function implemented in the application that calls a passed script
+    function to perform element comparisons.
+    </p>
+
+    <p>
+    Application functions that use this facility must be written in a special
+    way that avoids overusing the application's stack in order to guard against
+    the possibility of recursion, whether intentional or not. The basic steps
+    to call a function are as follows:
+    </p>
+
+    <ol>
+      <li>
+      Specify any calling arguments by using any of the
+      <code>AspAdd<i>Type</i>Argument</code> functions. This step is not
+      required if there are no arguments being passed to the target function.
+      The <code>AspClearFunctionArguments</code> function may be used if there
+      is a need to clear the argument list and start over. As with other
+      functions that take a <code>take</code> argument, be careful to manage
+      object use counts by indicating whether or not the argument list should
+      take ownership of the argument object. Normally, this will be
+      <code>true</code> for newly created argument objects, and
+      <code>false</code> otherwise. The <code>AspAdd<i>Type</i>Argument</code>
+      functions increment the object's use count when <code>take</code> is
+      <code>false</code> so that the object is not destoyed when the argument
+      list is consumed (and destroyed) during the call.
+      </li>
+      <li>
+      Use <code>AspCall</code> to prepare for the function to be invoked. Note
+      that <code>AspCall</code> does not directly call the target function.
+      Instead, it returns a special return value that the application function
+      must return. When the engine regains control, the special return value
+      causes the engine to invoke the target function.
+      </li>
+      <li>
+      When the target function exits, the engine calls back into the
+      application function, as if it had originally returned
+      <code>AspRunResult_Again</code> (see the section on the
+      <q><a href='#Again'>again
+      feature</a></q><a href='#Note-CallReturnValue'><sup>*</sup></a>). At this
+      point, the application function must extract and take ownership of the
+      called function's return value. The return value object is extracted by
+      calling <code>AspReturnValue</code>. The application is responsible for
+      the return value object. For example, if it is no longer needed after its
+      underlying value has been extracted, it should be freed using
+      <code>AspUnref</code>.
+      </li>
+    </ol>
+
+    <p>
+    The above steps ignore saving and restoring state between reentries into
+    the application function. In the section on the <q><a href='#Again'>again
+    feature</a></q>, the context area was mentioned as a location where state
+    information could be saved. But because of the potential for recursion when
+    calling functions from within application functions, using the context area
+    is not recommended here. The context area can be thought of as a global
+    space for the engine. What is needed to handle recursion is a local space
+    to save and restore state. This is where the <code>AspNextSymbol</code>,
+    <code>AspLoadLocal</code>, and <code>AspStoreLocal</code> functions come
+    in.
+    </p>
+
+    <p>
+    Therefore, the general approach to designing an application function that
+    calls other (i.e., script) functions is as follows:
+    </p>
+
+    <ol>
+      <li>
+      Upon every entry into the function, assign symbols for each required
+      state variable using <code>AspNextSymbol</code>. These symbols are
+      guaranteed to be unique with respect to the symbols used for the
+      application function's own parameters.
+      </li>
+      <li>
+      For each of the state variables, declare an appropriately typed local C
+      variable to hold the state value. The type should be compatible with an
+      Asp data type (e.g., integer, Boolean, etc.).
+      </li>
+      <li>
+      Call <code>AspAgain</code> to determine whether this is the first or a
+      subsequent invocation. On the first invocation (i.e., when
+      <code>AspAgain</code> returns <code>false</code>):
+      <ul>
+        <li>
+        Perform normal function initialization, including assigning an initial
+        value to each of the C state variables.
+        </li>
+      </ul>
+      On subsequence invocations:
+      <ul>
+        <li>
+        Restore the values of each state variable that were saved in the
+        previous invocation (see below). This is a two-step process. First,
+        <code>AspLoadLocal</code> is used to access the stored variable from
+        the local scope, returning a pointer to an <code>AspDataEntry</code>.
+        Then, an appropriate API function is used to extract the value from the
+        data entry (e.g., <code>AspIntegerValue</code> for an integer
+        variable). Using <code>AspLoadLocal</code> does not increment the
+        object's use count, so there is no need to call <code>AspUnref</code>
+        on the returned data entry.
+        </li>
+      </ul>
+      </li>
+      <li>
+      Based on the current state, perform the main logic of the function,
+      updating the C state variables. If the state indicates a return from
+      calling another function, process the return value as described above.
+      When calling another function with <code>AspCall</code>, perform the next
+      step before exiting the function with the value that <code>AspCall</code>
+      returns.
+      </li>
+      <li>
+      Create new Asp objects of the appropriate types for each of the C state
+      variables (e.g., <code>AspNewInteger</code> for an integer, etc.). Make
+      sure to check the return values to guard against an out-of-memory
+      condition. Then use <code>AspStoreLocal</code> to save the values into
+      the function's local scope using the applicable symbol for each variable,
+      specifying <code>true</code> for the <code>take</code> parameter.
+      </li>
+      <li>
+      If <code>AspCall</code> was used, return its return value. Otherwise,
+      return <code>AspRunResult_OK</code> or <code>AspRunResult_Again</code> as
+      appropriate. When returning <code>AspRunResult_OK</code>, the local scope
+      is automatically cleaned up, so there is no need to explicitly destroy
+      the objects that were stored for saving and restoring state between
+      invocations.
+      </li>
+    </ol>
+
+    <p>
+    It should be noted that there are no functions for saving/restoring
+    variables in the global scope. As mentioned above, the context area can be
+    used as a storage location for state that is global with respect to the
+    engine. Beyond that, simple C global variables can be used to store state
+    that would apply to all engines running in the application.
+    </p>
+
+    <blockquote id='Note-CallReturnValue'><sup>*</sup><small>
+    The <code>AspCall</code> function actually returns
+    <code>AspRunResult_Call</code>, but the application should not use this
+    value explicitly, but simply use the value returned by <code>AspCall</code>
+    as the return value of the application function.
+    </small></blockquote>
     <h3>AspAssert</h3>
 
     <blockquote><pre>
