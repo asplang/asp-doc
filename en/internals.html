@@ -125,9 +125,10 @@
       a pointer to application specification data, and
       </li>
       <li>
-      values associated with the <q>again</q> feature of application function
-      calls (the <q>again</q> flag, current application function symbol,
-      application function namespace, and application function return value).
+      values associated with application functions (the <q>again</q> flag,
+      flags for managing calls from within application functions, current
+      application function reference, application function namespace, and
+      application function return value).
       </li>
     </ul>
 
@@ -598,6 +599,12 @@
         <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       <tr>
+        <td>App Frame</td>
+        <td style='text-align: center;'><code>0x54</code></td><td>1</td>
+        <td>&check;</td><td>&check;</td><td>&check;</td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+      </tr>
+      <tr>
         <td>Element</td>
         <td style='text-align: center;'><code>0x62</code></td><td></td>
         <td>&check;</td><td>&check;</td><td>&check;</td><td></td>
@@ -1019,6 +1026,20 @@
     entry in word 2, and an index of the applicable Module entry in word 1
     (for global variables). Word 0 contains the return address, an index into
     the code block.
+    </p>
+
+    <p>
+    When application functions call other (i.e., script) functions, two frame
+    entries are required to hold all the necessary context information: Frame
+    and App Frame. The standard Frame is pushed first, followed by the
+    App Frame, so that when popping the frame, the type of context (application
+    or script function) can be determined by the type of the top frame entry.
+    The App Frame contains an index to the Function object in word 0 and the
+    application function's local Namespace in word 1. (Note that the calling
+    context's local Namespace is left unchanged in the Frame entry and is used
+    in some system functions (e.g., <code>exists</code>). Bit 0 indicates
+    whether the application function currently defines a return value, and an
+    index to the return value object, if present, is stored in word 2.
     </p>
 
     <h4 id='RecursionAvoidance'>Recursion avoidance</h4>
@@ -1925,11 +1946,13 @@
 
     <p>
     The <code>CALL</code> instruction pops first the Function entry, and then
-    the Argument List entry off the stack. Recall that the Function entry
-    contains a reference to the parameter list. Using both argument and
-    parameter lists, a new namespace is created containing entries for all the
-    parameters' symbols with appropriate values assigned. This is accomplished
-    by the <code>AspLoadArguments</code> function defined in
+    the Argument List entry off the stack, and then calls the
+    <code>AspCallFunction</code> function defined in
+    <span class='tt'>function.c</span>. Recall that the Function entry contains
+    a reference to the parameter list. Using both argument and parameter lists,
+    a new namespace is created containing entries for all the parameters'
+    symbols with appropriate values assigned. This is accomplished by the
+    <code>AspLoadArguments</code> function, also defined in
     <span class='tt'>function.c</span>. This function handles positional
     arguments first, and then named arguments are matched to their matching
     parameters. Finally, default values are used for any parameters that were
@@ -2015,6 +2038,16 @@
     <code>AspRunResult_OK</code> (or an error), the logic acts as if this were
     the first invocation of the <code>CALL</code> instruction and behaves as
     previously described.
+    </p>
+
+    <p>
+    When an application function calls another (i.e., script) function with
+    <code>AspCall</code>, it calls <code>AspCallFunction</code> directly. One
+    notable difference in this case is that the frame that is pushed consists
+    of two frame entries: Frame and App Frame. The application code is expected
+    to return <code>AspRunResult_Call</code>, and in response, the engine
+    reruns the same <code>CALL</code> instruction, but this time it invokes the
+    new function.
     </p>
 
     <h4>Module operations</h4>
@@ -2369,12 +2402,13 @@
     specification file generated for the application. The implementation of
     these functions resides in module names starting with
     <q><code>lib-</code></q>. To date, the following source files contain such
-    functions: <span class='tt'>lib-type.c</span>,
+    functions: <span class='tt'>lib-sys.c</span>,
+    <span class='tt'>lib-type.c</span>,
     <span class='tt'>lib-math.c</span>, <span class='tt'>lib-collect.c</span>,
     and <span class='tt'>lib-iter.c</span>. Application specification source
     files matching the file name suffixes are listed in the
-    <a href='app.html'>Application Developer's Guide and their functions are
-    described in the <a href='script.html'>Script Writer's Guide</a>.
+    <a href='app.html'>Application Developer's Guide</a> and their functions
+    are described in the <a href='script.html'>Script Writer's Guide</a>.
     </p>
 
     <p>
