@@ -201,11 +201,11 @@ AspTupleAppend(engine, tuple, value, true);
     application specification source file
     (<q><span class='tt'>.asps</span></q>) and then used in the development
     flow. This source file describes (a)&nbsp;functions that scripts may call,
-    and (b)&nbsp;variables with assigned initial values. The syntax for
-    describing a function resembles the Asp <code>def</code> statement without
-    the code body. Instead of a colon (<code>:</code>) at the end of the
-    statement, an equals sign (<code>=</code>) followed by the name of the C
-    function is given. Here is a short example defining two functions.
+    and (b)&nbsp;variables with optionally assigned initial values. The syntax
+    for describing a function resembles the Asp <code>def</code> statement
+    without the code body. Instead of a colon (<code>:</code>) at the end of
+    the statement, an equals sign (<code>=</code>) followed by the name of the
+    C function is given. Here is a short example defining two functions.
     </p>
 
     <blockquote><pre>
@@ -294,10 +294,11 @@ height</pre>
     must be defined in the application's specification file. To facilitate
     this, application specification source files for these built-in functions
     are provided and may be included in the main specification using the
-    <code>include</code> statement. Currently, there are four such files.
+    <code>include</code> statement. Currently, there are five such files.
     </p>
 
     <blockquote><pre>
+include sys
 include type
 include collect
 include iter
@@ -331,6 +332,27 @@ include math</pre>
     <blockquote><pre>
 lib</pre>
     </blockquote>
+
+    <p>
+    It is possible that when including another specification into your own, not
+    all of its definitions will be needed or even desirable. In these cases,
+    definitions may be removed using the <code>del</code> statement. In many
+    cases, dropping definitions will cause the C compiler to drop the
+    associated implementation from the final application executable.
+    </p>
+
+    <blockquote><pre>
+include common
+del clock, sleep</pre>
+    </blockquote>
+
+    <p>
+    In the above example, if the <code>clock</code> and <code>sleep</code>
+    functions were defined in the included common definitions, but were not
+    needed or desired, they can be removed from the application's specification
+    as indicated. Notice that multiple names can be given in a single
+    <code>del</code> statement, separated by commas.
+    </p>
 
     <p>
     As with Asp's syntax, comments are permitted. Also, line continuations may
