@@ -818,6 +818,11 @@ d2 = {'one': 1, 'two': 2, 'three': 3} # a dictionary with 3 kv pairs</pre>
         <td>Left-to-right</td>
       </tr>
       <tr>
+        <td><code>&lt;=&gt;</code></td>
+        <td>Object order.</td>
+        <td>Left-to-right</td>
+      </tr>
+      <tr>
         <td>
           <code>==</code>, <code>!=</code>,
           <code>&lt;</code>, <code>&lt;=</code>,
@@ -871,12 +876,13 @@ d2 = {'one': 1, 'two': 2, 'three': 3} # a dictionary with 3 kv pairs</pre>
     </p>
 
     <p>
-    Some operations rely on the comparison between objects. For example, as
+    Some operations rely on an ordering between objects. For example, as
     mentioned previously, the entries within sets and dictionaries rely on an
-    ordering of all objects that can be used as keys. Also, many object types
-    support comparison using the relational operators. The first thing to
-    consider for object sort order is the type of the objects being compared.
-    The following table lists the types in their order, from least to greatest.
+    ordering of all objects that can be used as keys. Also, the order of any
+    two objects can be ascertained using the <code>&lt;=&gt;</code> operator.
+    The first thing to consider for object sort order is the type of the
+    objects being compared. The following table lists the types in their order,
+    from least to greatest.
     </p>
 
     <ol>
@@ -1055,7 +1061,7 @@ result = bits &amp; ~(1 &lt;&lt; n)</pre>
     <h4>Comparisons</h4>
 
     <p>
-    Comparison operators are as expected: <code>==</code> (equal),
+    The standard comparison operators are as expected: <code>==</code> (equal),
     <code>!=</code> (not equal), <code>&lt;</code> (less), <code>&lt;=</code>
     (less or equal), <code>&gt;</code> (greater), and <code>&gt;=</code>
     (greater or equal). They work nearly the same as they do in Python,
@@ -1092,6 +1098,24 @@ result = bits &amp; ~(1 &lt;&lt; n)</pre>
     conditions are met, notwithstanding their difference in type. If two such
     iterators must be distinguished, their types or identities may be compared.
     </p>
+
+    <p>
+    In addition to the standard comparison operators, Asp supports the object
+    order operator, <code>&lt;=&gt;</code>. As mentioned above, Asp defines an
+    ordering of all objects. The <code>&lt;=&gt;</code> operator can be used to
+    determine the order of two objects of any type and yields a value of
+    <code>-1</code>, <code>0</code>, or <code>1</code>, indicating that the
+    left operand is ordered less, equal, or greater than the right operand,
+    respectively. The precedence of the <code>&lt;=&gt;</code> operator is
+    higher than the standard comparison operators, so the following code will
+    determine the order between objects <code>a</code> and <code>b</code>, and
+    then the resulting integer value will be compared with <code>0</code>.
+    </p>
+
+    <blockquote><pre>
+if a <=> b < 0:
+    # a sorts less than b.</pre>
+    </blockquote>
 
     <h4>Logical operations</h4>
 
@@ -1576,10 +1600,10 @@ i += 1</pre>
     </p>
 
     <p>
-    The syntax of the right-hand side may be a simple expression, or a
-    colon-separated pair of values, where the first value is either an index
-    or a key, and the second value is the value to be inserted. Let us examine
-    insertions into each type of collection.
+    Depending on the type of collection, the syntax of the right-hand side may
+    be a simple expression, or a colon-separated pair of values, where the
+    first value indicates where to insert, and the second value is the value to
+    be inserted. Let us examine insertions into each type of collection.
     </p>
 
     <p>
@@ -1616,6 +1640,28 @@ lst &lt;- 'abc'</pre>
 
     <p>
     Here, <code>'abc'</code> is appended to the end of <code>lst</code>.
+    </p>
+
+    <p>
+    Instead of using an integer index, the insertion location can be specified
+    using an iterator, either as the key in the key/value pair, or as the
+    target of the insertion. Elements are inserted before forward iterators and
+    after reverse iterators. If an iterator has reached its end, the element is
+    appended for a forward iterator or prepended for a reverse iterator.
+    </p>
+
+    <blockquote><pre>
+lst = [1, 2, 3, 4, 5]
+it = iter(lst)
+next(it); next(it)
+lst &lt;- it : 'abc'
+next(it); next(it)
+it &lt;- 'xyz'</pre>
+    </blockquote>
+
+    <p>
+    In the above example, the final value of <code>lst</code> is <code>[1, 2,
+    'abc', 3, 4, 'xyz', 5]</code>.
     </p>
 
     <p>

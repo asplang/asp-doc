@@ -1489,7 +1489,9 @@
 
     <p>
     Finally, there is one instruction, <code>POP</code>, that pops a single
-    value off the stack and decrements its use count.
+    value off the stack and decrements its use count. Another version of this
+    instruction, <code>POP1</code>, takes a 1-byte count and pops the indicated
+    number of entries.
     </p>
 
     <h4>Logical operations</h4>
@@ -3576,9 +3578,11 @@ else:
     expression to return the default <code>None</code> value. In the case that
     the <code>return</code> statement is nested inside one or more
     <code>for</code> statements, the iterators that the <code>for</code>
-    statement(s) maintain on the stack must be popped first, so the applicable
-    number of <code>POP</code> instructions are emitted for this purpose before
-    the return value expression and <code>RET</code> instruction.
+    statement(s) maintain on the stack must be popped first, so the
+    <code>POP1</code> instruction is emitted for this purpose, indicating the
+    number of items to pop, immediately before the return value expression and
+    the <code>RET</code> instruction. Note that if there is only one item to
+    pop, the single <code>POP</code> instruction is emitted instead.
     </p>
 
     <p>
