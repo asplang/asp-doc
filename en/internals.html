@@ -1632,29 +1632,32 @@
     <h4>Load instructions</h4>
 
     <p>
-    There are two types of load instructions. The <code>LD<i>n</i></code>
-    instructions are used to load the value of a given symbol. The
-    <code>LDA<i>n</i></code> instructions load the <q>address</q> of the given
-    symbol. The actual instructions are <code>LD1</code>, <code>LD2</code>,
-    <code>LD4</code>, <code>LDA1</code>, <code>LDA2</code>, and
-    <code>LDA4</code>. The number at the end of each mnemonic indicates the
-    byte size of the immediate symbol operand.
+    There are two types of load instructions. The <code>LD</code> and
+    <code>LD<i>n</i></code> instructions are used to load the value of a given
+    symbol. The <code>LDA</code> and <code>LDA<i>n</i></code> instructions load
+    the <q>address</q> of the given symbol. The actual instructions are
+    <code>LD</code>, <code>LD1</code>, <code>LD2</code>, <code>LD4</code>,
+    <code>LDA</code>, <code>LDA1</code>, <code>LDA2</code>, and
+    <code>LDA4</code>. The <code>LD</code> and <code>LDA</code> obtain their
+    symbol value by popping it off the stack. The number at the end of each of
+    the other mnemonics indicates the byte size of an immediate symbol
+    operand.
     </p>
 
     <p>
-    The <code>LD<i>n</i></code> instructions search for the symbol in the
-    local, global, and system namespaces, in that order. If the symbol is
-    found in the local namespace, but it has a global override (as indicated
-    by a bit in the namespace entry), the result from the global namespace is
-    used. The value from the identified entry is pushed onto the run-time
-    stack.
+    The <code>LD</code> and <code>LD<i>n</i></code> instructions search for the
+    symbol in the local, global, and system namespaces, in that order. If the
+    symbol is found in the local namespace, but it has a global override (as
+    indicated by a bit in the namespace entry), the result from the global
+    namespace is used. The value from the identified entry is pushed onto the
+    run-time stack.
     </p>
 
     <p>
-    The <code>LDA<i>n</i></code> instructions search the local namespace only,
-    and if the symbol is not found, a new entry is added, initially
-    referencing the <code>None</code> singleton entry (increasing its use
-    count, of course). If an existing entry is found and has a global
+    The <code>LDA</code> and <code>LDA<i>n</i></code> instructions search the
+    local namespace only, and if the symbol is not found, a new entry is added,
+    initially referencing the <code>None</code> singleton entry (increasing its
+    use count, of course). If an existing entry is found and has a global
     override, the global namespace is treated in likewise manner (i.e., the
     symbol is either located or created in the global namespace). Once the
     applicable entry is identified, the Node entry is pushed onto the stack.
@@ -2349,26 +2352,29 @@
     <h4>Member operations</h4>
 
     <p>
-    Member lookup is accomplished with the <code>MEM<i>n</i></code> and
-    <code>MEMA<i>n</i></code> instructions and is used to look up variables by
-    symbol in a module's namespace.
+    Member lookup is accomplished with the <code>MEM</code>,
+    <code>MEM<i>n</i></code>, <code>MEMA</code>, and <code>MEMA<i>n</i></code>
+    instructions and is used to look up variables by symbol in a module's
+    namespace. The <code>MEM</code> and <code>MEMA</code> instructions fetch
+    the symbol from the run-time stack, whereas the for the other instructions,
+    the symbol is specified as an immediate operand.
     </p>
 
     <p>
-    The <code>MEM1</code>, <code>MEM2</code>, and <code>MEM4</code>
-    instructions fetch a symbol from the immediate operand of the appropriate
-    size. The module entry is then popped from the top of the stack, and the
-    module's associated namespace is located and searched using the symbol. If
-    the entry is found, the associated value is pushed onto the stack.
-    Otherwise, the <code>AspRunResult_NameNotFound</code> error is generated.
+    For the <code>MEM</code>, <code>MEM1</code>, <code>MEM2</code>, and
+    <code>MEM4</code> instructions, the module entry is popped from the top of
+    the stack, and the module's associated namespace is located and searched
+    using the symbol. If the entry is found, the associated value is pushed
+    onto the stack. Otherwise, the <code>AspRunResult_NameNotFound</code> error
+    is generated.
     </p>
 
     <p>
-    In the case of the <code>MEMA<i>n</i></code> instructions, a similar
-    process is performed. If the entry is not found, a new one is inserted
-    with an associated value of <code>None</code>. Instead of the value, the
-    found (or created) Namespace Node entry is pushed, which represents an
-    <q>address</q>.
+    In the case of the <code>MEMA</code> and <code>MEMA<i>n</i></code>
+    instructions, a similar process is performed. If the entry is not found, a
+    new one is inserted with an associated value of <code>None</code>. Instead
+    of the value, the found (or created) Namespace Node entry is pushed, which
+    represents an <q>address</q>.
     </p>
 
     <h4>Termination instructions</h4>
@@ -2686,14 +2692,14 @@
     A member lookup (e.g. <code>m.a</code>) is handled in a slightly different
     manner. The first expression (which should express a module) is emitted.
     The second operand (after the period) must be a name, and the symbol of
-    this name is obtained. In normal contexts, a <code>MEM</code> or
-    <code>MEMA</code> instruction is emitted, as appropriate to the context
-    (value or <q>address</q>), specifying the symbol as an operand. In the
-    context of a <code>del</code> statement, the symbol value is push onto the
-    stack by emitting a <code>PUSHI</code> instruction. The <code>del</code>
-    statement's <code>Emit</code> method handles the rest of the code
-    emission, as described in the <a href='#DeleteCode'><code>del</code>
-    statement</a> section.
+    this name is obtained. In normal contexts, a <code>MEM<i>n</i></code> or
+    <code>MEMA<i>n</i></code> instruction is emitted, as appropriate to the
+    context (value or <q>address</q>), specifying the symbol as an operand. In
+    the context of a <code>del</code> statement, the symbol value is push onto
+    the stack by emitting a <code>PUSHI</code> instruction. The
+    <code>del</code> statement's <code>Emit</code> method handles the rest of
+    the code emission, as described in the
+    <a href='#DeleteCode'><code>del</code> statement</a> section.
     </p>
 
     <p>
@@ -3600,7 +3606,7 @@ else:
     immediate operands. This ensures that all the modules are known by their
     symbol right from the start of script execution. After this list of
     <code>ADDMOD</code> instructions at the top of the script, a
-    <code>LDMOD&nsbp;0</code> instruction is emitted to load (i.e., execute)
+    <code>LDMOD&nbsp;0</code> instruction is emitted to load (i.e., execute)
     the main module.
     </p>
 
@@ -3628,13 +3634,21 @@ else:
     </p>
 
     <p>
-    In the more complex case of the <q><code>from module import name,
-    &hellip</code></q> syntax, four instructions are emitted for each name in
-    the names list. These instructions are <code>PUSHM</code>,
-    <code>MEM</code>, <code>LDA</code>, and <code>SETP</code>. The first two
-    look up the name in the module, pushing its value onto the stack. The
-    other two instructions load the address of the name in the local namespace
-    and assign its value.
+    In the more complex case of the <q><code>from <i>module</i> import name,
+    &hellip;</code></q> syntax, four instructions are emitted for each name in
+    the names list. These instructions are <code>PUSHM<i>n</i></code>,
+    <code>MEM<i>n</i></code>, <code>LDA<i>n</i></code>, and <code>SETP</code>.
+    The first two look up the name in the module, pushing its value onto the
+    stack. The other two instructions load the address of the name in the local
+    namespace and assign its value.
+    </p>
+
+    <p>
+    The final case is the <q><code>from <i>module</i> import *</code></q>
+    syntax, code similar to that for a <code>for</code> loop is generated in
+    which the <code>MEM</code> and <code>LDA</code> instructions (the ones that
+    access the symbol value from the stack) are used to copy the contents of
+    the module's namespace to the local namespace.
     </p>
 
     <h4><code>assert</code> statement</h4>

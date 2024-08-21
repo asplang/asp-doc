@@ -670,11 +670,15 @@ d2 = {'one': 1, 'two': 2, 'three': 3} # a dictionary with 3 kv pairs</pre>
     a module is defined by its source file
     (<q><span class='tt'>.asp</span></q> file). Modules can be imported via
     the <code>import</code> and <code>from</code>&hellip;<code>import</code>
-    statements, except that the <code>*</code> is not allowed in the second
-    form. Asp defines a special system module (named <code>sys</code>) where
-    the application functions and a few special members are defined. When
-    looking up the value for a name, if the name cannot be found in the local
-    or global scope, the system module is automatically searched.
+    statements, including use of the <code>*</code> in the second form. Asp
+    defines a special system module (named <code>sys</code>) where the
+    application functions and a few special members are defined. When looking
+    up the value for a name, if the name cannot be found in the local or global
+    scope, the system module is automatically searched.
+    </p>
+
+    <p>
+    The members of a module can be visited using an iterator.
     </p>
 
     <h4>Iterators</h4>
@@ -684,7 +688,8 @@ d2 = {'one': 1, 'two': 2, 'three': 3} # a dictionary with 3 kv pairs</pre>
     collection or other iterable object. The <code>for</code> statement uses
     them to visit each member in the iterable. Unlike in Python, when iterating
     over a dictionary, the dereferenced value is a key/value tuple, not just
-    the key. Iterators come in two types: forward and reverse.
+    the key. In the case of modules, the key in the dereferenced value tuple is
+    a symbol. Iterators come in two types: forward and reverse.
     </p>
 
     <p>
