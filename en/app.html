@@ -127,7 +127,9 @@
     to loading script executable code into the engine return a value of type
     <code>AspAddCodeResult</code>, while functions related to script execution
     return a value of type <code>AspRunResult</code>. Values for these
-    enumerations are listed and described in the appendices.
+    enumerations are listed and described in the
+    <a href='#AspAddCodeResult'><code>AspAddCodeResult</code></a> and
+    <a href='#AspRunResult'><code>AspRunResult</code></a> tables.
     </p>
 
     <p>
@@ -1139,6 +1141,21 @@ AspRunResult AspStep(AspEngine *);</pre>
       </tr>
     </table>
 
+    <p>
+    Normally, a script ends when either it reaches its end or an error occurs.
+    However, a script can also be ended prematurely by calling the
+    <code>exit</code> function, which takes an optional exit code. The code is
+    translated into an appropriate <code>AspRunResult</code> value according to
+    the following rules. If the code is an integer, zero is translated to
+    <code>AspRunResult_OK</code>, positive values are translated to
+    <code>AspRunResult_Application&nbsp;+&nbsp;<i>code</i></code> (limiting the
+    value to <code>INT32_MAX</code> if necessary), and negative values are
+    translated to <code>INT32_MAX</code>. A code of <code>None</code> (the
+    default) is translated to <code>AspRunResult_OK</code>. All other types of
+    values (even the Boolean and floating-point types) are simply translated to
+    <code>AspRunResult_Application</code>.
+    </p>
+
     <h4>Execution information</h4>
 
     <blockquote><pre>
@@ -1341,8 +1358,8 @@ AspRunResult <i>function_name</i>
     <code>AspRunResult_Again</code>; see below) indicates an error which will
     cause the script to end. Application-specific error codes can be returned
     and are formed by adding a non-negative value to
-    <code>AspRunResult_Application</code>. See
-    <a href='#AspRunResult'>the <code>AspRunResult</code> table</a> for a full
+    <code>AspRunResult_Application</code>. See the
+    <a href='#AspRunResult'><code>AspRunResult</code></a> table for a full
     list of available error codes.
     </p>
 
