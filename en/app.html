@@ -810,7 +810,7 @@ AspRunResult AspSetArgumentsString(AspEngine *, const char *s);</pre>
 
     <blockquote><pre>
 AspRunResult AspSetCycleDetectionLimit(AspEngine *, uint32_t limit);
-uint32_t AspGetCycleDetectionLimit(AspEngine *);</pre>
+uint32_t AspGetCycleDetectionLimit(const AspEngine *);</pre>
     </blockquote>
 
     <p>
@@ -1558,11 +1558,12 @@ AspDataEntry *AspToRepr(AspEngine *, const AspDataEntry *value);</pre>
 
     <blockquote><pre>
 AspRunResult AspCount(AspEngine *, const AspDataEntry *, int32_t *count);
-AspDataEntry *AspElement(AspEngine *, AspDataEntry *sequence, int32_t index);
+AspDataEntry *AspElement
+    (AspEngine *, const AspDataEntry *sequence, int32_t index);
 int32_t AspRangeElement(AspEngine *, const AspDataEntry *range, int32_t index);
 char AspStringElement(AspEngine *, const AspDataEntry *str, int32_t index);
 AspDataEntry *AspFind
-    (AspEngine *, AspDataEntry *tree, const AspDataEntry *key);
+    (AspEngine *, const AspDataEntry *tree, const AspDataEntry *key);
 AspDataEntry *AspNext(AspEngine *, AspDataEntry *iterator);</pre>
     </blockquote>
 
@@ -1870,12 +1871,12 @@ bool AspStringAppend
 bool AspSetInsert
     (AspEngine *, AspDataEntry *set, AspDataEntry *key, bool take);
 bool AspSetErase
-    (AspEngine *, AspDataEntry *set, AspDataEntry *key);
+    (AspEngine *, AspDataEntry *set, const AspDataEntry *key);
 bool AspDictionaryInsert
     (AspEngine *, AspDataEntry *dictionary,
      AspDataEntry *key, AspDataEntry *value, bool take);
 bool AspDictionaryErase
-    (AspEngine *, AspDataEntry *dictionary, AspDataEntry *key);</pre>
+    (AspEngine *, AspDataEntry *dictionary, const AspDataEntry *key);</pre>
     </blockquote>
 
     <p>
