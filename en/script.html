@@ -465,19 +465,28 @@ $ ls -l hello.*
     <h4>Integers</h4>
 
     <p>
-    Unlike Python, the Asp integer type is a 32-bit signed value, giving it a
-    range of roughly &plusmn;2 million. The reason for this is pragmatic: the
-    usual target system for script execution is an embedded platform,
-    typically having limited resources. Other programming languages supporting
-    much more demanding applications have survived quite well without the need
-    for arbitrary precision integers (which is what Python supports). Besides,
-    many embedded platforms do not support integers larger than 32 bits.
+    Integer values can be expressed in much the same way as with Python.
+    Hexadecimal values are prefixed with <code>0x</code>, and binary values with
+    <code>0b</code>. Unlike Python, Asp does not support octal literals. To aid
+    readability, the underscore character (<code>_</code>) may be placed
+    between digits. This can be useful when using lengthy binary literals.
     </p>
 
     <p>
-    This means that if integer values in your script become large enough,
-    wrap-around could occur. This should not be a problem in most situations,
-    but now you have been warned.
+    Unlike Python, the Asp integer type is a 32-bit signed value, giving it a
+    range of roughly &plusmn;2 million. The reason for this is pragmatic: the
+    usual target system for script execution is an embedded platform, typically
+    having limited resources. Other programming languages supporting much more
+    demanding applications have survived quite well without the need for
+    arbitrary precision integers (which is what Python supports). Besides, many
+    embedded platforms do not support integers larger than 32 bits.
+    </p>
+
+    <p>
+    This means that if integer values in your script become large enough in
+    magnitude, arithmetic overflow could occur, causing the script to abort.
+    This should not be a problem in most situations, but now you have been
+    warned.
     </p>
 
     <h4>Floating-point values</h4>
@@ -486,7 +495,10 @@ $ ls -l hello.*
     Fractional values are represented with the IEEE Standard for
     Floating-Point Arithmetic (IEEE 754) double precision type (64 bit format:
     53 bit significand, 11 bit exponent). Floating-point constants support the
-    usual <q>e</q> notation for specifying the exponent part.
+    usual <q>e</q> notation for specifying the exponent part. When expressing
+    floating-point values, the underscore character (<code>_</code>) may be
+    used to separate digits to improve readability, just as with integer
+    literals.
     </p>
 
     <p>
