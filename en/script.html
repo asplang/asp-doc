@@ -588,11 +588,13 @@ i..j+k          # From i to j+k-1, inclusive
     </p>
 
     <p>
-    Strings are expressed much the same as in Python. The contents of a string
-    may be enclosed in either single or double quotes (<code>'</code> or
+    Strings are expressed in much the same way as in Python. The contents of a
+    string may be enclosed in either single or double quotes (<code>'</code> or
     <code>"</code>) and they support the usual escape sequences via the
-    backslash (<code>\</code>). Raw and triple-quoted string syntax is not
-    supported.
+    backslash (<code>\</code>), except that the <code>\<i>nnn</i></code> form
+    uses decimal digits, not octal. The <code>\x<i>hh</i></code> form is the
+    same as in Python, expressing a character value with two hexadecimal
+    digits. Raw and triple-quoted string syntax is not supported.
     </p>
 
     <h4>Tuples and lists</h4>
