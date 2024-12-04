@@ -308,17 +308,24 @@ include math</pre>
     </blockquote>
 
     <p>
+    </p>
+
+    <p>
     The names of the associated C functions for these built-ins all start with
     <q><code>AspLib_</code></q>, so applications should avoid naming their own
     variables or functions with this prefix. The include files are available
     in a common include directory. On Linux systems, this is typically
-    <span class='tt'>/usr/include/asps</span>. The built-in functions are
-    described in the <a href='script.html'>Script Writer's Guide</a>.
+    <span class='tt'>/usr/include/asps</span>. The <scan class='tt'>aspg</span>
+    utility searches for included specification files using the directories
+    listed in the <span class='tt'>ASP_SPEC_INCLUDE</span> environment
+    variable, so the user must set up this variable with the appropriate
+    location(s). The built-in functions are described in the
+    <a href='script.html'>Script Writer's Guide</a>.
     </p>
 
     <p>
     It is also possible to build your own libraries of script-callable
-    functions. When writing the specification, the first line in the
+    functions. When writing the specification, the first line of code in the
     specification file should be the <code>lib</code> statement, which
     identifies the functions as being delivered in a library instead of being
     compiled directly in the application. The only time this truly matters is

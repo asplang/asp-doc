@@ -2161,17 +2161,16 @@ if module() is __main__:
     The <code>int</code> and <code>float</code> functions work with numeric
     objects (Boolean, integer, and floating-point) and with strings.
     Conversion from floating-point to integer results in truncation towards
-    zero, except if the floating-point value is out of range, in which case
-    an error condition is raised. Out of range conditions include the
-    positive and negative infinities and <code>NaN</code> values. This checking
-    can be disabled via a <code>check</code> parameter which takes a Boolean
-    value.  Conversion from Boolean yields <code>0</code> or <code>1</code> for
-    conversion to integer, or in the case of conversion to floating-point,
-    <code>0.0</code> or <code>1.0</code>. When converting from a string, the
-    content of the string is parsed and, if valid, yields an appropriate
-    numeric value. An invalid or out of range number string will cause an
-    error, ending the execution of the script, so care must be taken to avoid
-    this condition.
+    zero, except if the floating-point value is out of range (including
+    positive and negative infinities and <code>NaN</code> values), in which
+    case a <code>None</code> value is returned. Conversion from Boolean yields
+    <code>0</code> or <code>1</code> for conversion to integer, or in the case
+    of conversion to floating-point, <code>0.0</code> or <code>1.0</code>. When
+    converting from a string, the content of the string is parsed and, if
+    valid, yields an appropriate numeric value. An invalid or out-of-range
+    number string yields a <code>None</code> value, which can be
+    used to detect the invalid
+    input<a href='#Note-Obsolescent-int-Parameter'><sup>*</sup></a>.
     </p>
 
     <p>
@@ -2204,6 +2203,24 @@ if module() is __main__:
     (i.e., it is not copied). This behaviour is identical to that of Python.
     </p>
 
+    <blockquote id='Note-Obsolescent-int-Parameter'><sup>*</sup><small>
+    The <code>int</code> function has an optional <code>check</code> parameter
+    which should now be considered obsolescent, as it may be removed in a
+    future version. In versions prior to 1.2.2.0, if the <code>check</code>
+    parameter was <code>True</code> (the default value in those versions),
+    out-of-range floating-point values raised an error condition, ending the
+    script. Specifying <code>False</code> for <code>check</code> disabled this
+    behaviour, yielding a value limited to the range of a 32-bit integer for
+    valid floating-point values outside that range, and zero for
+    <code>NaN</code> values. In version 1.2.2.0 and future versions (until the
+    parameter is removed), the default value of <code>check</code> is
+    <code>False</code>, and the behaviour is now modified to return
+    <code>None</code> for an out-of-range floating-point argument. Also in
+    versions prior to 1.2.2.0, malformed string input raised an error condition
+    (regardless of the the value of the <code>check</code> parameter) instead
+    of the current behaviour of returning <code>None</code>.
+    </small></blockquote>
+
     <h4>Iterator functions</h4>
 
     <p>
@@ -2224,7 +2241,7 @@ if module() is __main__:
 
     <p>
     Like the <code>iter</code> function, the <code>reversed</code> function
-    creates an new iterator from an iterable, but in this case, the iterator is
+    creates a new iterator from an iterable, but in this case, the iterator is
     a reverse iterator, causing iteration to occur in reverse order. Unlike
     with Python, an existing iterator may be passed to the
     <code>reversed</code> function. In this case, a copy is made (just like
