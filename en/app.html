@@ -173,12 +173,13 @@ AspTupleAppend(engine, tuple, value, true);
     applications that use Asp requires additional steps in the development
     flow. First, the script-callable functions are identified in an
     application specification source file
-    (<q><span class='tt'>.asps</span></q>). This file is then processed to
-    produce three output files: a C header, a C source file, and a binary
-    application specification file (<q><span class='tt'>.aspec</span></q>)
-    which is used by the Asp compiler when compiling scripts for the
-    application. (The location and names of the output files can be changed
-    using command line options. See the help information by using either the
+    (<q><span class='tt'>.asps</span></q>). This file is then processed using
+    the Asp generator (<span class='tt'>aspg</span>) to produce three output
+    files: a C header, a C source file, and a binary application specification
+    file (<q><span class='tt'>.aspec</span></q>) which is used by the Asp
+    compiler when compiling scripts for the application. (The locations and
+    names of <span class='tt'>aspg</span>'s output files can be changed using
+    command line options. See the help information by using either the
     <span class='tt'>-?</span> or <span class='tt'>-h</span> option.) The next
     section describes the syntax of the application specification source file,
     and the figure below shows where it fits into the development flow.
@@ -195,7 +196,7 @@ AspTupleAppend(engine, tuple, value, true);
     files that define script-callable functions to ensure they are defined
     properly. This is especially true if the functions are implemented in C++
     to ensure they are defined using the C linkage convention. The diagram
-    also shows the Asp engine library being linked into the application
+    also shows the Asp engine library being linked into the application.
     </p>
 
     <h2>Application specification</h2>
