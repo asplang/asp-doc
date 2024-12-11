@@ -308,19 +308,42 @@ include math</pre>
     </blockquote>
 
     <p>
-    </p>
-
-    <p>
     The names of the associated C functions for these built-ins all start with
     <q><code>AspLib_</code></q>, so applications should avoid naming their own
-    variables or functions with this prefix. The include files are available
-    in a common include directory. On Linux systems, this is typically
-    <span class='tt'>/usr/include/asps</span>. The <scan class='tt'>aspg</span>
+    variables or functions with this prefix. The include files are available in
+    a common include directory. On Linux systems, this is typically
+    <span class='tt'>/usr/include/asps</span>. The <span class='tt'>aspg</span>
     utility searches for included specification files using the directories
     listed in the <span class='tt'>ASP_SPEC_INCLUDE</span> environment
     variable, so the user must set up this variable with the appropriate
     location(s). The built-in functions are described in the
     <a href='script.html'>Script Writer's Guide</a>.
+    </p>
+
+    <p>
+    The application developer may also break specifications up into multiple
+    files and use <code>include</code> statements to include the content of one
+    into another. If the name of a file to be included is a valid variable
+    name, the name may be specified without quotes. Otherwise, it must be
+    specified as a string (i.e., enclosed in single or double quotes).
+    Regardless, the <span class='tt'>.asps</span> suffix must be omitted from
+    the name. As an example, the following statements include the files
+    <span class='tt'>my&#8209;utils.asps</span> and
+    <span class='tt'>my&#8209;math.asps</span>.
+    </p>
+
+    <blockquote><pre>
+include 'my-utils'
+include "my-math"</pre>
+    </blockquote>
+
+    <p>
+    There are variable and macro names in the generated code that are based on
+    the file name of the top-level specification file. Any characters in the
+    file name that would be invalid for a variable or symbol name are converted
+    to an underscore. So, for example, the <code>AspAppSpec</code> variable for
+    the top-level specification file <span class='tt'>my-api.asps</span> would
+    be named <code>AspAppSpec_my_api</code>.
     </p>
 
     <p>
@@ -385,8 +408,9 @@ def delete_files_by_time \
     The examples use C function names starting with <q><code>asp_</code></q>
     as a matter of convention. However, note that there are no restrictions on
     the name of the C function (other than being a valid C identifier). It is
-    advisable to avoid names starting with <q><code>Asp_</code></q>, however,
-    since this prefix is used in the library implementation.)
+    advisable to avoid names starting with <q><code>Asp_</code></q> and
+    <q><code>AspLib_</code></q>, however, since these prefixes are used in the
+    engine library implementation.)
     </small></blockquote>
 
     <h2 id='EngineControl'>Engine control</h2>
@@ -517,9 +541,10 @@ AspRunResult AspInitializeEx
     instance defined in the generated application specification C source file
     and declared in the generated C header. Its name is
     <code>AspAppSpec_<i>app</i></code>, where <code><i>app</i></code> is the
-    base name of the application specification file name. The
-    <code>AspAppSpec</code> instance is treated as read-only and can therefore
-    be shared between multiple engine instances if desired.
+    base name of the application specification file name (with possible
+    modifications, as mentioned above). The <code>AspAppSpec</code> instance is
+    treated as read-only and can therefore be shared between multiple engine
+    instances if desired.
     </p>
 
     <p>
