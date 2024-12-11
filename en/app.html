@@ -177,9 +177,11 @@ AspTupleAppend(engine, tuple, value, true);
     produce three output files: a C header, a C source file, and a binary
     application specification file (<q><span class='tt'>.aspec</span></q>)
     which is used by the Asp compiler when compiling scripts for the
-    application. The next section describes the syntax of the application
-    specification source file, and the figure below shows where it fits into
-    the development flow.
+    application. (The location and names of the output files can be changed
+    using command line options. See the help information by using either the
+    <span class='tt'>-?</span> or <span class='tt'>-h</span> option.) The next
+    section describes the syntax of the application specification source file,
+    and the figure below shows where it fits into the development flow.
     </p>
 
     <img src='flow.png' class='center' width='75%'>
