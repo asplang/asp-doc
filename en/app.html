@@ -140,7 +140,7 @@
     (major, minor, patch, and tweak), with the major component being the
     most-significant byte. The following example shows how to handle a
     difference with some of the collection-oriented functions introduced in
-    version 0.7.0.0 of the library.
+    version 0.7.0.0 of the engine library.
     </p>
 
     <blockquote><pre>
@@ -1406,6 +1406,7 @@ bool AspIsNumber(const AspDataEntry *);
 bool AspIsNumeric(const AspDataEntry *);
 bool AspIsSequence(const AspDataEntry *);
 bool AspIsIterator(const AspDataEntry *);
+bool AspIsIterable(const AspDataEntry *);
 bool AspIsAppObject(const AspDataEntry *);</pre>
     </blockquote>
 
@@ -1435,7 +1436,14 @@ bool AspIsAppObject(const AspDataEntry *);</pre>
     <code>true</code> for tuples and lists, but not for strings, even though in
     some respects, strings can be treated like sequences. The
     <code>AspIsIterator</code> function returns <code>true</code> if the
-    argument is either a forward or reverse iterator. And finally,
+    argument is either a forward or reverse iterator. The
+    <code>AspIsIterable</code> function returns <code>true</code> for any
+    object that can be iterated over. This includes ranges, strings, modules,
+    and the ellipsis (<code>...</code> represents the current local scope), in
+    addition to the usual collection types. Note that even though an iterator
+    can be created from another iterator (potentially reversing direction),
+    iterators themselves are not considered iterable as far as the
+    <code>AspIsIterable</code> function is concerned. And finally,
     <code>AspIsAppObject</code> returns <code>true</code> if the object is
     either of the two types of application object: integer or pointer.
     </p>
@@ -1599,15 +1607,19 @@ int32_t AspRangeElement(AspEngine *, const AspDataEntry *range, int32_t index);
 char AspStringElement(AspEngine *, const AspDataEntry *str, int32_t index);
 AspDataEntry *AspFind
     (AspEngine *, const AspDataEntry *tree, const AspDataEntry *key);
+AspDataEntry *AspAt(AspEngine *, const AspDataEntry *iterator);
+bool AspAtSame
+    (AspEngine *,
+     const AspDataEntry *iterator1, const AspDataEntry *iterator2);
 AspDataEntry *AspNext(AspEngine *, AspDataEntry *iterator);</pre>
     </blockquote>
 
     <p>
     Asp supports a few types of collections: tuples, lists, sets, and
-    dictionaries. Strings can also be treated as collections (of characters)
-    in some cases. Ranges represent sequences of integer values, and can
-    therefore sometimes be treated like collections. The application function
-    API includes a few functions for getting information from these types of
+    dictionaries. Strings can also be treated as collections (of bytes) in some
+    cases. Ranges represent sequences of integer values, and can therefore
+    sometimes be treated like collections. The application function API
+    includes a few functions for getting information from these types of
     objects.
     </p>
 
@@ -1615,16 +1627,17 @@ AspDataEntry *AspNext(AspEngine *, AspDataEntry *iterator);</pre>
     <code>AspCount</code> yields the number of items inside the given object.
     For a collection, this is the number of items in the collection. Strings
     are treated like collections in this regard, returning the number of
-    characters in the string. For ranges, the number of elements that would be
+    bytes in the string. For ranges, the number of elements that would be
     generated if the range was expanded into a list is computed. For all other
     object types, the function returns <code>1</code>.
     </p>
 
     <p>
-    It should be noted that prior to version 1.1, the <code>AspCount</code>
-    function's signature was different, as indicated below. If application
-    code must support multiple versions of Asp, the <code>ASP_VERSION</code>
-    macro can be used to conditionally compile code for both versions.
+    It should be noted that prior to engine version 1.1, the
+    <code>AspCount</code> function's signature was different, as indicated
+    below. If application code must support multiple versions of Asp, the
+    <code>ASP_VERSION</code> macro can be used to conditionally compile code
+    for both versions.
     </p>
 
     <blockquote><pre>
@@ -1652,9 +1665,9 @@ unsigned AspCount(const AspDataEntry *); /* old signature */</pre>
 
     <p>
     Unlike tuples and lists, strings and ranges do not contain objects. Strings
-    consist of characters and ranges represent sequences of integers.  Because
-    of this, the <code>AspElement</code> function does not handle either of
-    them. Instead, the <code>AspStringElement</code> function is provided for
+    consist of bytes and ranges represent sequences of integers.  Because of
+    this, the <code>AspElement</code> function does not handle either of them.
+    Instead, the <code>AspStringElement</code> function is provided for
     accessing the characters of a string, and the <code>AspRangeElement</code>
     function for accessing the integer members of a range. Instead of returning
     a data entry pointer, they return the character or integer at the indicated
@@ -1675,16 +1688,36 @@ unsigned AspCount(const AspDataEntry *); /* old signature */</pre>
     </p>
 
     <p>
+    The current element pointed to by an iterator may be obtained using the
+    <code>AspAt</code> function. Unlike the functions described above, the
+    caller is responsible for unreferencing the returned object or otherwise
+    dealing with its ownership. This is because in some cases (like with
+    iterating over a range or a string), a new object is created when an
+    iterator is dereferenced. In the cases where an existing object is
+    returned, <code>AspAt</code> increments the use count so that treatment of
+    the returned object is consistent. If the iterator has been advanced to the
+    end of the iterable, <code>AspAt</code> returns a null pointer.
+    </p>
+
+    <p>
+    Two iterators may be compared to determine if they are positioned on the
+    same member by calling <code>AspAtSame</code>. The function returns
+    <code>true</code> only if both iterators refer to the same member within
+    the same collection. The item(s) themselves are not compared, so, for
+    example, even if two different elements of a list referring to the same
+    object are compared via iterators, <code>AspAtSame</code> would still
+    return <code>false</code>. Note that the directions of the iterators are
+    not compared, meaning that if a forward iterator and a reverse iterator are
+    positioned on the same member within the same collection, the return value
+    will be <code>true</code>.
+    </p>
+
+    <p>
     The <code>AspNext</code> function works with an iterator to yield the next
     value in an iterable (i.e., a collection-like object). Successive calls to
-    <code>AspNext</code> return subsequent values in the iterable. Unlike the
-    functions described above, the caller is responsible for unreferencing the
-    returned object or otherwise dealing with its ownership. This is because in
-    some cases (like with iterating over a range or a string), a new object is
-    created. In the cases where an existing object is returned,
-    <code>AspNext</code> increments the use count so that treatment of the
-    returned object is consistent. If the iterator is advanced to the end of
-    the iterable, <code>AspNext</code> returns a null pointer.
+    <code>AspNext</code> return subsequent values in the iterable by advancing
+    the iterator. Just like <code>AspAt</code>, the value returned by
+    <code>AspNext</code> must be disposed of by the caller.
     </p>
 
     <h3 id='ObjectCreation'>Object creation</h3>
@@ -1829,7 +1862,7 @@ AspDataEntry *AspNewType(AspEngine *, const AspDataEntry *object);</pre>
     <a href='#ReferenceCounting'>reference counting</a> for more information.
     </p>
 
-    <h3>Sequence manipulation</h3>
+    <h3 id='SequenceManipulation'>Sequence manipulation</h3>
 
     <blockquote><pre>
 bool AspTupleAppend
@@ -1839,8 +1872,10 @@ bool AspListAppend
 bool AspListInsert
     (AspEngine *, AspDataEntry *list,
      int32_t index, AspDataEntry *value, bool take);
-bool AspListErase
-    (AspEngine *, AspDataEntry *list, int32_t index);</pre>
+bool AspListErase(AspEngine *, AspDataEntry *list, int32_t index);
+bool AspIteratorInsert
+    (AspEngine *, AspDataEntry *iterator, AspDataEntry *value, bool take);
+bool AspIteratorErase(AspEngine *, AspDataEntry *iterator);</pre>
     </blockquote>
 
     <p>
@@ -1856,17 +1891,30 @@ bool AspListErase
     this routine to modify the contents of a pre-existing tuple. Another
     function, <code>AspListAppend</code>, is used to add an item to the end of
     a list. Items can also be inserted at a position other than the end using
-    <code>AspListInsert</code>. This last function accepts an index value
-    which may be negative and works the same way as in element access (see the
-    section on <a href='#CollectionInformation'>collection information</a>).
-    For negative index values, the item is inserted after the indicated
-    position so that the newly inserted item is at the indicated position when
-    the insertion is completed.
+    <code>AspListInsert</code> or <code>AspIteratorInsert</code>. The
+    <code>AspListInsert</code> function accepts an index value which may be
+    negative and works the same way as in element access (see the section on
+    <a href='#CollectionInformation'>collection information</a>). For negative
+    index values, the item is inserted after the indicated position so that the
+    newly inserted item is at the indicated position when the insertion is
+    completed. If an iterator is available, an item may be inserted using
+    <code>AspIteratorInsert</code>. The location of the new item depends on
+    whether the iterator is forward or reverse. Items are inserted before a
+    forward iterator and after a reverse iterator.
     </p>
 
     <p>
     An item can be removed from a list using <code>AspListErase</code>. The
-    index parameter follows the same rules as for element access.
+    index parameter follows the same rules as for element access. An item can
+    also be removed from a list via an iterator using
+    <code>AspIteratorErase</code>.
+    </p>
+
+    <p>
+    For the iterator-based functions, it should be noted that
+    <code>AspIteratorInsert</code> can only be used with iterators on lists.
+    <code>AspIteratorErase</code>, however, can be used to erase items via an
+    iterator on a list, set, or dictionary.
     </p>
 
     <p>
@@ -1911,7 +1959,8 @@ bool AspDictionaryInsert
     (AspEngine *, AspDataEntry *dictionary,
      AspDataEntry *key, AspDataEntry *value, bool take);
 bool AspDictionaryErase
-    (AspEngine *, AspDataEntry *dictionary, const AspDataEntry *key);</pre>
+    (AspEngine *, AspDataEntry *dictionary, const AspDataEntry *key);
+bool AspIteratorErase(AspEngine *, AspDataEntry *iterator);</pre>
     </blockquote>
 
     <p>
@@ -1938,6 +1987,13 @@ bool AspDictionaryErase
     to <code>false</code>, and then <code>AspUnref</code> can be called on the
     object not being used elsewhere. Either method achieves the same goal of
     managing use counts to avoid leaks into the engine's data area.
+    </p>
+
+    <p>
+    The <code>AspIteratorErase</code> function, also mentioned above in the
+    section on <a href='#SequenceManipulation'>sequence manipulation</a>, can
+    be used to erase an item via an iterator on a set or dictionary in addition
+    to a list.
     </p>
 
     <h3 id='ReferenceCounting'>Reference counting</h3>
@@ -2207,8 +2263,9 @@ AspRunResult AspCall(AspEngine *, AspDataEntry *function);
 AspRunResult AspReturnValue(AspEngine *, AspDataEntry **returnValue);
 int32_t AspNextSymbol(AspEngine *);
 AspDataEntry *AspLoadLocal(AspEngine *, int32_t symbol);
-AspRunResult AspStoreLocal
-    (AspEngine *, int32_t symbol, AspDataEntry *value, bool take);</pre>
+bool AspStoreLocal
+    (AspEngine *, int32_t symbol, AspDataEntry *value, bool take);
+bool AspEraseLocal(AspEngine *, int32_t symbol);</pre>
     </blockquote>
 
     <p>
@@ -2274,8 +2331,8 @@ AspRunResult AspStoreLocal
     is not recommended here. The context area can be thought of as a global
     space for the engine. What is needed to handle recursion is a local space
     to save and restore state. This is where the <code>AspNextSymbol</code>,
-    <code>AspLoadLocal</code>, and <code>AspStoreLocal</code> functions come
-    in.
+    <code>AspLoadLocal</code>, <code>AspStoreLocal</code>, and
+    <code>AspEraseLocal</code> functions come in.
     </p>
 
     <p>
@@ -2292,8 +2349,10 @@ AspRunResult AspStoreLocal
       </li>
       <li>
       For each of the state variables, declare an appropriately typed local C
-      variable to hold the state value. The type should be compatible with an
-      Asp data type (e.g., integer, Boolean, etc.).
+      variable to hold the state value. The type should be compatible with the
+      applicable Asp data type (e.g., <code>int32_t</code> for integers,
+      <code>bool</code> for Booleans,
+      etc.).
       </li>
       <li>
       Call <code>AspAgain</code> to determine whether this is the first or a
@@ -2329,12 +2388,23 @@ AspRunResult AspStoreLocal
       returns.
       </li>
       <li>
-      Create new Asp objects of the appropriate types for each of the C state
-      variables (e.g., <code>AspNewInteger</code> for an integer, etc.). Make
-      sure to check the return values to guard against an out-of-memory
-      condition. Then use <code>AspStoreLocal</code> to save the values into
-      the function's local scope using the applicable symbol for each variable,
-      specifying <code>true</code> for the <code>take</code> parameter.
+      Update variables in the local scope as follows:
+      <ul>
+        <li>
+        Create new Asp objects of the appropriate types for each of the C state
+        variables (e.g., <code>AspNewInteger</code> for an integer, etc.). Make
+        sure to check the return values to guard against an out-of-memory
+        condition. Then use <code>AspStoreLocal</code> to save the values into
+        the function's local scope using the applicable symbol for each
+        variable, specifying <code>true</code> for the <code>take</code>
+        parameter.<a href='#Note-AspStoreLocalChange'><sup>&dagger;</sup></a>).
+        </li>
+        <li>
+        If an existing variable is no longer needed, it may be removed using
+        <code>AspEraseLocal</code>. Note that <code>AspLoadLocal</code> will
+        return a null pointer for a non-existent variable.
+        </li>
+      </ul>
       </li>
       <li>
       If <code>AspCall</code> was used, return its return value. Otherwise,
@@ -2359,6 +2429,16 @@ AspRunResult AspStoreLocal
     <code>AspRunResult_Call</code>, but the application should not use this
     value explicitly, but simply use the value returned by <code>AspCall</code>
     as the return value of the application function.
+    </small></blockquote>
+
+    <blockquote id='Note-AspStoreLocalChange'><sup>&dagger;</sup><small>
+    The return type of the <code>AspStoreLocal</code> function changed in
+    engine version 1.2.2.0. Prior to 1.2.2.0, the return type was
+    <code>AspRunResult</code>. To simplify checking, it has been changed to
+    <code>bool</code>, a value of <code>true</code> indicating success. If
+    application code must support the two versions of this function, use the
+    <code>ASP_VERSION</code> macro to distinguish code that supports each of
+    the two return types.
     </small></blockquote>
 
     <h3>AspAssert</h3>

@@ -1,5 +1,4 @@
-Asp scripting platform documentation
-====================================
+# Asp scripting platform documentation
 
 Information available at:
 
