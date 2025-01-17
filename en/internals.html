@@ -972,7 +972,10 @@
     String iterators are a special case of sequence iterators. Word 1 is still
     an index to the Element entry, but there is an additional 8&#8209;bit
     field (<code>S11</code>, within word 3) used to keep track of the current
-    character within the current String Fragment entry.
+    character within the current String Fragment entry. This field is set to
+    zero when the iterator is advanced to its end so that a forward iterator
+    and a reverse iterator on the same string will compare equal to each other
+    if both have been advanced to their ends.
     </p>
 
     <p>
