@@ -1873,9 +1873,9 @@ bool AspListInsert
     (AspEngine *, AspDataEntry *list,
      int32_t index, AspDataEntry *value, bool take);
 bool AspListErase(AspEngine *, AspDataEntry *list, int32_t index);
-bool AspIteratorInsert
+bool AspInsertAt
     (AspEngine *, AspDataEntry *iterator, AspDataEntry *value, bool take);
-bool AspIteratorErase(AspEngine *, AspDataEntry *iterator);</pre>
+bool AspEraseAt(AspEngine *, AspDataEntry *iterator);</pre>
     </blockquote>
 
     <p>
@@ -1891,29 +1891,28 @@ bool AspIteratorErase(AspEngine *, AspDataEntry *iterator);</pre>
     this routine to modify the contents of a pre-existing tuple. Another
     function, <code>AspListAppend</code>, is used to add an item to the end of
     a list. Items can also be inserted at a position other than the end using
-    <code>AspListInsert</code> or <code>AspIteratorInsert</code>. The
+    <code>AspListInsert</code> or <code>AspInsertAt</code>. The
     <code>AspListInsert</code> function accepts an index value which may be
     negative and works the same way as in element access (see the section on
     <a href='#CollectionInformation'>collection information</a>). For negative
     index values, the item is inserted after the indicated position so that the
     newly inserted item is at the indicated position when the insertion is
     completed. If an iterator is available, an item may be inserted using
-    <code>AspIteratorInsert</code>. The location of the new item depends on
-    whether the iterator is forward or reverse. Items are inserted before a
-    forward iterator and after a reverse iterator.
+    <code>AspInsertAt</code>. The location of the new item depends on whether
+    the iterator is forward or reverse. Items are inserted before a forward
+    iterator and after a reverse iterator.
     </p>
 
     <p>
     An item can be removed from a list using <code>AspListErase</code>. The
     index parameter follows the same rules as for element access. An item can
-    also be removed from a list via an iterator using
-    <code>AspIteratorErase</code>.
+    also be removed from a list via an iterator using <code>AspEraseAt</code>.
     </p>
 
     <p>
     For the iterator-based functions, it should be noted that
-    <code>AspIteratorInsert</code> can only be used with iterators on lists.
-    <code>AspIteratorErase</code>, however, can be used to erase items via an
+    <code>AspInsertAt</code> can only be used with iterators on lists.
+    <code>AspEraseAt</code>, however, can be used to erase items via an
     iterator on a list, set, or dictionary.
     </p>
 
@@ -1960,7 +1959,7 @@ bool AspDictionaryInsert
      AspDataEntry *key, AspDataEntry *value, bool take);
 bool AspDictionaryErase
     (AspEngine *, AspDataEntry *dictionary, const AspDataEntry *key);
-bool AspIteratorErase(AspEngine *, AspDataEntry *iterator);</pre>
+bool AspEraseAt(AspEngine *, AspDataEntry *iterator);</pre>
     </blockquote>
 
     <p>
@@ -1990,10 +1989,10 @@ bool AspIteratorErase(AspEngine *, AspDataEntry *iterator);</pre>
     </p>
 
     <p>
-    The <code>AspIteratorErase</code> function, also mentioned above in the
-    section on <a href='#SequenceManipulation'>sequence manipulation</a>, can
-    be used to erase an item via an iterator on a set or dictionary in addition
-    to a list.
+    The <code>AspEraseAt</code> function, also mentioned above in the section
+    on <a href='#SequenceManipulation'>sequence manipulation</a>, can be used
+    to erase an item via an iterator on a set or dictionary in addition to a
+    list.
     </p>
 
     <h3 id='ReferenceCounting'>Reference counting</h3>
