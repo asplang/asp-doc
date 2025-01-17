@@ -2226,8 +2226,9 @@ if module() is __main__:
     <p>
     Use of iterators in scripts is usually done implicitly using the
     <code>for</code> statement. However, direct access to iterators is also
-    available through three built-in functions: <code>iter</code>,
-    <code>reversed</code>, and <code>next</code>.
+    available through several built-in functions: <code>iter</code>,
+    <code>reversed</code>, <code>at</code>, <code>next</code>, and
+    <code>del_at</code>.
     </p>
 
     <p>
@@ -2252,14 +2253,24 @@ if module() is __main__:
     </p>
 
     <p>
-    The <code>next</code> function returns the next item in the iterable,
-    advancing the iterator to refer to the next item. Successive calls to
-    <code>next</code> return subsequent items in the iteration. The
-    <code>next</code> function can be called with one or two arguments. The
-    first is the iterator. An optional second parameter, called
+    The <code>at</code> and <code>next</code> functions both return the current
+    item in the iterable, the difference being that <code>next</code> advances
+    the iterator to refer to the next item (after fetching the current item),
+    while <code>at</code> leaves the iterator unchanged. Successive calls to
+    <code>next</code> return subsequent items in the iteration. Both
+    <code>at</code> and <code>next</code> can be called with one or two
+    arguments. The first is the iterator. An optional second parameter, called
     <code>end</code>, allows the caller to specify a value to be returned in
     the case that the iterator has reached its end. If left unspecified, its
     default value is <code>None</code>.
+    </p>
+
+    <p>
+    The <code>del_at</code> function is used to remove items from mutable
+    collections (i.e., lists, sets, and dictionaries) using an iterator. It
+    complements the language's <code>del</code> statement used with an indexing
+    expression. In the case of the <code>del_at</code> function, however, only
+    the iterator is required as an argument, not the collection it refers to.
     </p>
 
     <p>
