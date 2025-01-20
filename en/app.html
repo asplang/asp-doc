@@ -1611,7 +1611,8 @@ AspDataEntry *AspAt(AspEngine *, const AspDataEntry *iterator);
 bool AspAtSame
     (AspEngine *,
      const AspDataEntry *iterator1, const AspDataEntry *iterator2);
-AspDataEntry *AspNext(AspEngine *, AspDataEntry *iterator);</pre>
+AspDataEntry *AspNext(AspEngine *, AspDataEntry *iterator);
+AspDataEntry *AspIterable(AspEngine *, const AspDataEntry *iterator);</pre>
     </blockquote>
 
     <p>
@@ -1718,6 +1719,13 @@ unsigned AspCount(const AspDataEntry *); /* old signature */</pre>
     <code>AspNext</code> return subsequent values in the iterable by advancing
     the iterator. Just like <code>AspAt</code>, the value returned by
     <code>AspNext</code> must be disposed of by the caller.
+    </p>
+
+    <p>
+    Sometimes it is necessary to obtain the iterable for a given iterator. This
+    can be done using the <code>AspIterable</code> function. The returned
+    iterable's reference count is not incremented. If the argument is not an
+    iterator, a null pointer is returned.
     </p>
 
     <h3 id='ObjectCreation'>Object creation</h3>
