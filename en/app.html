@@ -725,15 +725,15 @@ AspAddCodeResult AspPageCode(AspEngine *, void *id);</pre>
     specifying the number of pages, the size of each page, and a routine that
     will be called during execution to read in pages of code. The page reading
     routine must be supplied by the application and must be compatible with the
-    the <code>AspCodePageReader</code> function pointer declaration as given
-    below. The <code>AspSetCodePaging</code> function may also be used to
-    disable code paging by specifying zero for either the
-    <code>pageCount</code> or <code>pageSize</code>, or both. Once set, the
-    paging state (enabled or disabled) remains in effect; there is no need to
-    call <code>AspSetCodePaging</code> before running each script. Also note
-    that the <code>pageSize</code> must be at least 12 bytes (for
-    implementation reasons), although it is expected it will normally be much
-    larger than this.
+    <code>AspCodePageReader</code> function pointer declaration as given below.
+    The <code>AspSetCodePaging</code> function may also be used to disable code
+    paging by specifying zero for either the <code>pageCount</code> or
+    <code>pageSize</code>, or both. Once set, the paging state (enabled or
+    disabled) remains in effect; there is no need to call
+    <code>AspSetCodePaging</code> before running each script. Also note that
+    the <code>pageSize</code> must be at least 12 bytes (for implementation
+    reasons), although it is expected it will normally be much larger than
+    this.
     </p>
 
     <blockquote><pre>
@@ -1015,9 +1015,11 @@ AspRunResult AspStep(AspEngine *);</pre>
       <tr>
         <td><code>InvalidContext</code></td>
         <td>
-        The engine is attempting to execute an instruction associated with an
-        Asp <code>global</code> or <code>local</code> statement outside the
-        context of a function. This may indicate a bug in the Asp compiler.
+        Either a local scope iterator is being used outside the scope in which
+        it was created, or the engine is attempting to execute an instruction
+        associated with an Asp <code>global</code> or <code>local</code>
+        statement outside the context of a function. This second case may
+        indicate a bug in the Asp compiler.
         </td>
       </tr>
       <tr>

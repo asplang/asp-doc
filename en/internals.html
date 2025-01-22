@@ -109,8 +109,8 @@
       data entry),
       </li>
       <li>
-      pointers to singleton entries (<code>None</code>, <code>False</code>,
-      and <code>True</code>),
+      pointers to singleton entries (<code>None</code>, <code>...</code>,
+      <code>False</code>, and <code>True</code>),
       </li>
       <li>
       a pointer to the run-time stack,
@@ -744,15 +744,16 @@
     </p>
 
     <p>
-    The same logic applies to <code>False</code> and <code>True</code>
-    objects, but in these cases, the engine does not allocate singletons for
-    them during initialization. Instead, the first time a <code>False</code>
-    object is <q>created</q>, if no <code>False</code> singleton (a Boolean
-    entry) exists, it is allocated, and its reference is stored in the engine
-    structure. Subsequent new <code>False</code> objects use the same
-    reference, incrementing its use count. If the last <code>False</code>
-    object is <q>destroyed</q>, the entry is reclaimed to the free list. The
-    same rules apply to <code>True</code> objects as well.
+    The same logic applies to <code>...</code>, <code>False</code>, and
+    <code>True</code> objects, but in these cases, the engine does not allocate
+    singletons for them during initialization. Instead, for example, the first
+    time a <code>False</code> object is <q>created</q>, if no
+    <code>False</code> singleton (a Boolean entry) exists, it is allocated, and
+    its reference is stored in the engine structure. Subsequent new
+    <code>False</code> objects use the same reference, incrementing its use
+    count. If the last <code>False</code> object is <q>destroyed</q>, the entry
+    is reclaimed to the free list. The same rules apply to <code>...</code> and
+    <code>True</code> objects as well.
     </p>
 
     <h4>Stack</h4>
@@ -1216,13 +1217,14 @@
     </p>
 
     <p>
-    Singletons are also maintained for the <code>False</code> and
-    <code>True</code> values, but as previously mentioned, these are not
-    initially allocated. So, the pointers in the <code>Engine</code> structure
-    for these two singletons are initialized to null and are updated later when
-    Boolean values are created. The data area will only ever have at most one
-    <code>False</code> value and one <code>True</code> value, but if either
-    one's use count is reduced to zero, the engine's pointers are reinitialized
+    Singletons are also maintained for the <code>...</code>,
+    <code>False</code>, and <code>True</code> values, but as previously
+    mentioned, these are not initially allocated. So, the pointers in the
+    <code>Engine</code> structure for these two singletons are initialized to
+    null and are updated later when applicable values are created. The data
+    area will only ever have at most one <code>...</code> value, one
+    <code>False</code> value, and one <code>True</code> value, but if any one's
+    use count is reduced to zero, the engine's pointers are reinitialized
     to null.
     </p>
 
@@ -1355,7 +1357,7 @@
       <tr>
         <th>Instruction</th>
         <th>Operands</th>
-        <th>Type of item pushed</th>
+        <th>Item pushed</th>
       </tr>
       <tr>
         <td><code>PUSHN</code></td>
@@ -1368,7 +1370,8 @@
       <tr>
         <td><code>PUSHE</code></td>
         <td>None</td>
-        <td><code>...</code> (ellipsis).</td>
+        <td><code>...</code> (ellipsis; actually, a reference to a
+        <code>...</code> singleton).</td>
       </tr>
       <tr>
         <td><code>PUSHF</code></td>

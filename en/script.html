@@ -440,12 +440,13 @@ $ ls -l hello.*
     </p>
 
     <p>
-    The value of the Ellipsis type, namely <code>...</code>, is not as useful
-    in Asp as it may be in Python. In Python, it is used as a wildcard in
-    multidimensional array indexing. Since Asp does not support
-    multidimensional arrays (other than implemented as lists of lists), it is
-    less important. However, it exists and exhibits the same behaviour in
-    other ways as in Python (e.g., conversion to Boolean value).
+    The value of the Ellipsis type, namely <code>...</code>, is use differently
+    in Asp than it is in Python. In Python, it is used as a wildcard in
+    multidimensional array indexing. Asp does not support multidimensional
+    arrays (other than implemented as lists of lists), so its use has been
+    reimagined. Its main purpose in Asp is to represent the local scope in
+    applicable contexts. Otherwise, it exhibits the same behaviour in other
+    ways as in Python (e.g., conversion to Boolean value).
     </p>
 
     <h4>Booleans</h4>
@@ -1251,7 +1252,7 @@ r7 = a or b or c</pre>
     These operators can also be used to test the existence of a symbol in
     a module or in the local scope of a function. In this usage, the left
     operand must be a symbol and the right operand can be either a module or
-    the Ellipsis (<code>...</code>). As described in the section on built-in
+    the ellipsis (<code>...</code>). As described in the section on built-in
     functions, the <code>module</code> function returns the current module, so
     to determine whether a variable, say <code>x</code>, exists in the current
     module's global scope, the following code can be used.
@@ -1263,7 +1264,12 @@ if `x in module():
     </blockquote>
 
     <p>
-    To check the local scope, the Ellipsis (<code>...</code>), acts as a proxy
+    Of course, any module can be checked by specifying it as the right operand
+    (e.g., <code>`x in sys</code>).
+    </p>
+
+    <p>
+    To check the local scope, the ellipsis (<code>...</code>) acts as a proxy
     for the current local scope. So, in a function, it refers to the set of
     variables local to the function. At the global scope of a module (i.e.,
     outside of any function definition), it refers to the module's global
@@ -1275,9 +1281,6 @@ if `x in module():
 if `x in ...:
     # ...</pre>
     </blockquote>
-
-    And of course, the <code>sys</code> module can be checked by specifying it
-    as the right operand.
 
     <h4>Identity tests</h4>
 
@@ -2241,6 +2244,17 @@ if module() is __main__:
     </p>
 
     <p>
+    In addition to the regular types of iterable objects (i.e., range, string,
+    tuple, list, set, and dictionary), a module or the ellipsis
+    (<code>...</code>) may be given as the argument to <code>iter</code> to
+    visit the symbols and associated values of the applicable scope. When using
+    local scope iterators (ones created from <code>...</code>), care must be
+    taken to use them only within the scope in which they were created. If the
+    engine detects a use of such an iterator outside this context, the script
+    will end in error.
+    </p>
+
+    <p>
     Like the <code>iter</code> function, the <code>reversed</code> function
     creates a new iterator from an iterable, but in this case, the iterator is
     a reverse iterator, causing iteration to occur in reverse order. Unlike
@@ -2276,7 +2290,10 @@ if module() is __main__:
     <p>
     Sometimes it is necessary to obtain the iterable for a given iterator. This
     can be done using the <code>iterable</code> function, passing the iterator
-    in question as the only parameter.
+    in question as the only parameter. Note that if the returned iterable
+    happens to be the ellipsis (<code>...</code>), care must be taken because
+    this value represents a local scope which could be different from the scope
+    in which the iterator was originally created.
     </p>
 
     <p>
