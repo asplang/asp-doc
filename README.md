@@ -8,5 +8,5 @@ Information available at:
   - https://bitbucket.org/asplang/ (development)
   - https://github.com/asplang/ (stable)
 - Online documentation: https://asplang.bitbucket.io/
-- License: See `LICENSE.txt` in the source respository
+- License: See the LICENSE.txt file in the source respository
   https://bitbucket.org/asplang/asp/

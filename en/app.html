@@ -104,13 +104,27 @@
     <h2>Getting started</h2>
 
     <p>
+    The Asp library is built using the CMake utility. Build instructions are
+    provided in a README file. Depending on the specified CMake options, the
+    build system generates and/or installs one or more of the following items:
+    compiler, application specification generator, standalone application, an
+    application specification for the standalone application, info utility,
+    engine libraries, and C headers and application specification include files
+    for application development. If the <code>ENABLE_DEBUG</code> CMake option
+    is specified, debug versions of the libraries and standalone application
+    will be built that include a few extra features to assist with debugging.
+    </p>
+
+    <p>
     To incorporate the Asp script engine into an application, the application
-    code must be linked with the Asp engine library. The library can be
-    provided as static or shared varieties. For Linux environments, the
+    code must be linked with the Asp engine libraries. The libraries can be
+    built as static or shared varieties. For Linux environments, the main
     library can be linked using <span class='tt'>-laspe</span> on the
     <span class='tt'>gcc</span> command line. If the predefined math functions
     are used by the application, <span class='tt'>-laspm</span> must also be
-    specified.
+    specified. To use the debug versions of these libraries, append the
+    <span class='tt'>-d</span> suffix to these library names (e.g.,
+    <span class='tt'>-laspe-d</span>).
     </p>
 
     <p>
@@ -1327,6 +1341,7 @@ size_t AspMaxDataSize(const AspEngine *);</pre>
 
     <blockquote><pre>
 #ifdef ASP_DEBUG
+uint32_t AspDataAddress(const AspEngine *, const AspDataEntry *);
 uint32_t AspUseCount(const AspDataEntry *);
 void AspTraceFile(AspEngine *, FILE *);
 void AspDump(const AspEngine *, FILE *);
@@ -1363,6 +1378,8 @@ void AspDump(const AspEngine *, FILE *);
     The <code>AspDump</code> function dumps out the contents of the data memory
     in a human-readable form to the given C file handle. The output can be
     useful for identifying leaked objects and other undesirable behaviour.
+    The <code>AspDataAddress</code> function can be used to return the address
+    of an object, making it easier to locate the object in the dump output.
     </p>
 
     <h2>Function interface</h2>
