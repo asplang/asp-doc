@@ -1349,12 +1349,14 @@ void AspDump(const AspEngine *, FILE *);
     </blockquote>
 
     <p>
-    If the Asp library has been built with the <code>ASP_DEBUG</code> macro
-    defined (typically enabled via the <code>ENABLE_DEBUG</code> CMake option),
-    the functions described in this section will be made available. Normally,
-    these functions are not defined. Application developers should only use a
-    debug version of the library in cases where debugging their script-callable
-    application functions is required.
+    The functions described in this section can assist the developer in
+    debugging their application code. Normally, these functions are not
+    defined. They can be enabled by compiling the application code with the
+    <code>ASP_DEBUG</code> macro defined, and linking with the debug version of
+    the engine library. Application developers should only use the debug
+    version of the library in cases where debugging their script-callable
+    application functions is required, as it consumes more resources than the
+    non-debug version.
     </p>
 
     <p>
@@ -1362,10 +1364,10 @@ void AspDump(const AspEngine *, FILE *);
     new objects are not leaked into data memory. The <code>AspRef</code> and
     <code>AspUnref</code> functions, along with the <code>take</code> parameter
     of several other API functions, manage the use count of each object. The
-    <code>AspUseCount</code> is provided to return an object's use count to
-    ensure the application developer understands how to handle object lifetime
-    correctly. Passing either a null pointer or the address of a free data
-    entry will cause <code>AspUseCount</code> to return <code>0</code>.
+    <code>AspUseCount</code> function is provided to return an object's use
+    count to ensure the application developer understands how to handle object
+    lifetime correctly. Passing either a null pointer or the address of a free
+    data entry will cause <code>AspUseCount</code> to return <code>0</code>.
     </p>
 
     <p>
