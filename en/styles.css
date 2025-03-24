@@ -95,7 +95,7 @@ td
 
 /* Tables with vertical column headings. */
 
-th.vertical
+th.vertical, td.vertical
 {
     border: 1px solid black;
     writing-mode: vertical-rl;
