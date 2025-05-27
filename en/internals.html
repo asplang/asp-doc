@@ -61,7 +61,7 @@
 
     <p>
     The implementation of the engine library resides in the
-    <span style='tt'>engine</span> directory of the source repository.
+    <span class='tt'>engine</span> directory of the source repository.
     </p>
 
     <p>
@@ -512,7 +512,7 @@
       </tr>
       <tr>
         <td>Module</td>
-        <td style='text-align: center;'><code>0x10</code></td><td>1</td>
+        <td style='text-align: center;'><code>0x10</code></td><td>2</td>
         <td>&check;</td><td>&check;</td><td>&check;</td><td></td>
         <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
@@ -3634,9 +3634,9 @@ else:
 
     <p>
     Then, after the <code>LDMOD</code> instruction, in the case of a simple
-    <code>import</code>, two instructions are emitted, <code>PUSHM</code> and
-    <code>SETP</code>, to assign the module to a variable in the local
-    namespace, allowing subsequent use of module member lookup.
+    <code>import</code>, three instructions are emitted, <code>PUSHM</code>,
+    <code>LDA</code>, and <code>SETP</code>, to assign the module to a variable
+    in the local namespace, allowing subsequent use of module member lookup.
     </p>
 
     <p>
@@ -3861,24 +3861,62 @@ else:
     in the engine's data area during (re-)initialization prior to script
     execution. This information is encoded as an array of bytes in the
     <code>spec</code> member of the <code>AspAppSpec</code> structure. It is a
-    sequence of variable-length entries with the following formats. The entries
-    appear in the order of the symbol values assigned to item being defined,
-    starting with 3 (with 0 &mdash; 2 being reserved, as described above), and
-    each entry using the previous symbol value plus one. Multi-byte fields are
+    sequence of variable-length entries. In version 0 of the spec format, the
+    entries appear in the order of the symbol values assigned to them, starting
+    with 3 (with 0 &mdash; 2 being reserved, as described above); each entry is
+    assigned the previous symbol value plus one.
+    </p>
+
+    <p>
+    The exact format of the entries has changed since the original version. In
+    order to understand some of the nuances of the current version, it is best
+    to examine the original format, version 0, first. Multi-byte fields are
     encoded in big-endian order, and bit fields are numbered such that bit 0 is
     the least significant bit.
     </p>
 
     <table>
       <tr>
-        <th>Entry type</th>
-        <th colspan='2'>Content</th>
-        <th colspan='2'>Comments</th>
+        <th colspan='5'>Version 0 Format</th>
       </tr>
       <tr>
-        <td>Symbol</td>
-        <td colspan='2'><code>0xFE</code></td>
-        <td colspan='2'>
+        <th>Entry type</th>
+        <th colspan='2'>Content</th>
+        <th>Field Description</th>
+        <th>Entry Description</th>
+      </tr>
+      <tr>
+        <td rowspan='2'><p>Simple variable</p></td>
+        <td colspan='2'><p><code>0xFF</code></p></td>
+        <td>
+          <p>
+          Simple variable entry prefix.
+          </p>
+        </td>
+        <td rowspan='2'>
+          <p>
+          A variable is added with the current symbol and assigned the given
+          <i>value</i>.
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td colspan='2'><p><i>value</i></p></td>
+        <td>
+          <p>
+          See below for the format of a <i>value</i>.
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td><p>Symbol</p></td>
+        <td colspan='2'><p><code>0xFE</code></p></td>
+        <td>
+          <p>
+          Symbol entry prefix.
+          </p>
+        </td>
+        <td>
           <p>
           No entries are made in the data area. The purpose of this entry is
           simply to increment the symbol value for the next entry.
@@ -3886,36 +3924,26 @@ else:
         </td>
       </tr>
       <tr>
-        <td rowspan='2'>Simple variable</td>
-        <td colspan='2'><code>0xFF</code></td>
-        <td rowspan='2' colspan='2'>
-          <p>
-          A variable is added with the current symbol and assigned the given
-          <i>value</i>. See below for the format of a <i>value</i>.
-          </p>
-        </td>
-      </tr>
-      <tr>
-        <td colspan='2'><i>value</i></td>
-      </tr>
-      <tr>
-        <td rowspan='3'>Function</td>
-        <td colspan='2'><i>pcount</i></td>
+        <td rowspan='3'><p>Function</p></td>
+        <td colspan='2'><p><i>par_count</i></p></td>
         <td>
           <p>
-          Single byte number of function parameters from 0 to 253. Note that
-          application functions with more than 253 parameters are not not
-          supported, but this should not be a problem in most applications.
+          Single-byte number of function parameters from 0 to 253
+          (<code>0xFD</code>). Note that application functions with more than
+          253 parameters are not supported, but this should not be a problem in
+          most applications.
           </p>
         </td>
         <td rowspan='3'>
-        A variable is added with the current symbol and assigned to a new
-        function object created with the given parameters.
+          <p>
+          A variable is added with the current symbol and assigned to a new
+          function object created with the given parameters.
+          </p>
         </td>
       </tr>
       <tr>
-        <td rowspan='2' class='vertical'>&times;&nbsp;<i>pcount</i></td>
-        <td>Symbol + Type</td>
+        <td rowspan='2' class='vertical'>&times;&nbsp;<i>par_count</i></td>
+        <td><p><i>symbol</i> + <i>type</i></p></td>
         <td>
           <p>
           4&#8209;byte field containing the following bit-fields:
@@ -3943,7 +3971,7 @@ else:
         </td>
       </tr>
       <tr>
-        <td>[<i>value</i>]</td>
+        <td><p>[<i>value</i>]</p></td>
         <td>
           <p>
           Optional parameter value, present when the parameter type is
@@ -3963,7 +3991,7 @@ else:
       <tr>
         <th>Value type</th>
         <th>Content</th>
-        <th>Comments</th>
+        <th>Field Description</th>
       </tr>
       <tr>
         <td><code>None</code></td>
@@ -4028,6 +4056,270 @@ else:
         </td>
       </tr>
     </table>
+
+    <p>
+    The version 0 format does not support assigning symbols to modules other
+    than <code>sys</code>, so a version 1 format was needed to support
+    application modules. However, there was one small problem: the version of
+    format was not explicity encoded so that the engine could distinguish one
+    version from another. To overcome this shortcoming, subsequent formats all
+    start with the two bytes <code>0xFF&nbsp;0xFF</code>, followed by a third
+    byte to indicate the format version. This pattern can be distinguished from
+    a simple variable entry in the version 0 format because the second byte
+    occupies the place where the value type would be, and <code>0xFF</code> is
+    an invalid value type. So, a newer version of the engine can check for a
+    "versioned" format (by checking the first two bytes) and support both the
+    version 0 format and subsequent versions, while older versions of the
+    engine that support only the version 0 format will fail during the load of
+    newer versions due to the invalid value type.
+    </p>
+
+    <p>
+    With that explanation out of the way, here is a description of each of the
+    entries in the version 1 format. It should be noted that most entries no
+    longer appear in symbol order. (The order of entries is described below.)
+    Instead, most entries that assign a value to a symbol contain the symbol in
+    the entry.
+    </p>
+
+    <table>
+      <tr>
+        <th colspan='5'>Version 1 Format</th>
+      </tr>
+      <tr>
+        <th>Entry type</th>
+        <th colspan='2'>Content</th>
+        <th>Field Description</th>
+        <th>Entry Description</th>
+      </tr>
+      <tr>
+        <td rowspan='3'><p>Header</p></td>
+        <td colspan='2'><p><code>0xFF 0xFF</code></p></td>
+        <td>
+          <p>
+          Fixed 2-byte field to mark a format version greater than 0.
+          </p>
+        </td>
+        <td rowspan='3'>
+          <p>
+          This entry occurs only once, at the beginning. The specified number
+          of modules are created, each assigned a unique application module
+          identifier, and are added to the modules collection.
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td colspan='2'><p><code>0x01</code></p></td>
+        <td>
+          <p>
+          Single-byte format version.
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td colspan='2'><p><i>mod_count</i></p></td>
+        <td>
+          <p>
+          4&#8209;byte number of imported application modules. If the
+          application specification contains no <code>import</code> statements,
+          this value will be zero.
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td rowspan='3'><p>Simple variable</p></td>
+        <td colspan='2'><p><code>0xFF</code></p></td>
+        <td>
+          <p>
+          Simple variable entry prefix.
+          </p>
+        </td>
+        <td rowspan='3'>
+          <p>
+          Same as in version 0.
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td colspan='2'><p><i>symbol</i></p></td>
+        <td>
+          <p>
+          Symbol of the variable to be added.
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td colspan='2'><p><i>value</i></p></td>
+        <td>
+          <p>
+          Same as in version 0.
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td><p>Reserved</p></td>
+        <td colspan='2'><p><code>0xFE</code> &hellip;</p></td>
+        <td>
+          <p>
+          Previously the symbol entry prefix. Now reserved for future use.
+          </p>
+        </td>
+        <td>
+          <p>
+          Invalid entry.
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td><p>Module</p></td>
+        <td colspan='2'><p><code>0xFD</code></p></td>
+        <td>
+          <p>
+          Module entry prefix.
+          </p>
+        </td>
+        <td>
+          <p>
+          Subsequent simple variable, function, and import entries are added to
+          the next application module until another module entry is
+          encountered. This entry is not used for the <code>sys</code> module,
+          whose entries immediately follow the header.
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td rowspan='2'><p>Import</p></td>
+        <td colspan='2'><p><code>0xFC</code></p></td>
+        <td>
+          <p>
+          Import entry prefix.
+          </p>
+        </td>
+        <td rowspan='2'>
+          <p>
+          A reference to the given module is added in the modules collection
+          with the current symbol.
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td colspan='2'><p><i>module</i></p></td>
+        <td>
+          <p>
+          4&#8209;byte application module identifier.
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td rowspan='5'><p>Function with more than 250 parameters</p></td>
+        <td colspan='2'><p><code>0xFB</code></p></td>
+        <td>
+          <p>
+          Function entry prefix.
+          </p>
+        </td>
+        <td rowspan='9'>
+          <p>
+          A variable is added to the active module with the given symbol and
+          assigned to a new function object created with the given parameters.
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td colspan='2'><p><i>par_count</i></p></td>
+        <td>
+          <p>
+          4&#8209;byte number of function parameters (i.e., essentially
+          unlimited).
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td colspan='2'><p><i>symbol</i></p></td>
+        <td>
+          <p>
+          4&#8209;byte function symbol.
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td rowspan='2' class='vertical'>&times;&nbsp;<i>par_count</i></td>
+        <td><p><i>symbol</i> + <i>type</i></p></td>
+        <td rowspan='2'>
+          <p>
+          Same as in version 0.
+          <p>
+        </td>
+      </tr>
+      <tr>
+        <td><p>[<i>value</i>]</p></td>
+      </tr>
+      <tr>
+        <td rowspan='4'><p>Function with 250 parameters or less</p></td>
+        <td colspan='2'><p><i>par_count</i></p></td>
+        <td>
+          <p>
+          Single-byte number of function parameters from 0 to 250
+          (<code>0xFA</code>). If an application function has more than 250
+          parameters (which should be rare), it can be added via the
+          <code>0xFA</code> entry.
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td colspan='2'><p><i>symbol</i></p></td>
+        <td>
+          <p>
+          4&#8209;byte function symbol.
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td rowspan='2' class='vertical'>&times;&nbsp;<i>par_count</i></td>
+        <td><p><i>symbol</i> + <i>type</i></p></td>
+        <td rowspan='2'>
+          <p>
+          Same as in version 0.
+          <p>
+        </td>
+      </tr>
+      <tr>
+        <td><p>[<i>value</i>]</p></td>
+      </tr>
+    </table>
+
+    <p>
+    The order of the version 1 entries is as follows:
+    </p>
+
+    <ol>
+      <li>
+      The header.
+      </li>
+      <li>
+      All the import entries. Module symbols are assigned sequentially.
+      </li>
+      <li>
+      All the simple variable and function entries for the top-level module.
+      </li>
+      <li>
+      For each additional module:
+        <ol type='a'>
+          <li>
+          A module entry.
+          </li>
+          <li>
+          All the simple variable and function entries for the module.
+          </li>
+        </ol>
+      </li>
+    </ol>
+
+    <p>
+    It should be noted that newer versions of <span class='tt'>aspg</span> will
+    generate the C application specification of the lowest possible version in
+    order to provide support for applications using older engines.
+    </p>
 
     <hr>
 

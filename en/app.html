@@ -219,12 +219,13 @@ AspTupleAppend(engine, tuple, value, true);
     As mentioned above, script-callable functions must be described in an
     application specification source file
     (<q><span class='tt'>.asps</span></q>) and then used in the development
-    flow. This source file describes (a)&nbsp;functions that scripts may call,
-    and (b)&nbsp;variables with optionally assigned initial values. The syntax
-    for describing a function resembles the Asp <code>def</code> statement
-    without the code body. Instead of a colon (<code>:</code>) at the end of
-    the statement, an equals sign (<code>=</code>) followed by the name of the
-    C function is given. Here is a short example defining two functions.
+    flow. This source file describes, among other things, (a)&nbsp;functions
+    that scripts may call, and (b)&nbsp;variables with optionally assigned
+    initial values. The syntax for describing a function resembles the Asp
+    <code>def</code> statement without the code body. Instead of a colon
+    (<code>:</code>) at the end of the statement, an equals sign
+    (<code>=</code>) followed by the name of the C function is given. Here is a
+    short example defining two functions.
     </p>
 
     <blockquote><pre>
@@ -272,9 +273,9 @@ PI = 3.1415926535</pre>
     </blockquote>
 
     <p>
-    It is also possible to define a name without assigning a value. No code
-    is generated during script initialization for such definitions, but a
-    symbol value is reserved for the name.
+    It is also possible to define a name without assigning a value. No code is
+    generated during script initialization for such definitions, but a symbol
+    value is reserved for the name.
     </p>
 
     <blockquote><pre>
@@ -286,8 +287,8 @@ height</pre>
 
     <p>
     The generated header includes a macro definition for each name used in the
-    specification. This includes names of functions, function parameters,
-    and variables, with or without an assigned value. The form of this name is
+    specification. This includes names of functions, function parameters, and
+    variables, with or without an assigned value. The form of this name is
     shown below. These definitions allow the application to use the symbols by
     name to, for example, test for the presence of an argument in the named
     variable parameter lists (e.g., <code>**kwargs</code>).
@@ -302,18 +303,69 @@ height</pre>
     described in the application specification are initialized prior to each
     new script execution. So, a script that makes changes to the definitions
     during its execution will not affect the environment of the next script to
-    run. For example, if a script deletes an application function definition
-    or assigns a new value to an application variable, these changes remain in
+    run. For example, if a script deletes an application function definition or
+    assigns a new value to an application variable, these changes remain in
     effect only until the end of the script's execution. The next script sees
     the original definitions when it starts.
     </p>
 
     <p>
-    Asp defines several built-in functions, but to use them, they
-    must be defined in the application's specification file. To facilitate
-    this, application specification source files for these built-in functions
-    are provided and may be included in the main specification using the
-    <code>include</code> statement. Currently, there are five such files.
+    When writing large application specifications, it can be useful to organize
+    definitions into multiple source files. Two statements facilitate the use
+    of multiple source files: <code>include</code> and <code>import</code>. The
+    <code>include</code> statement includes the source of the target file as if
+    it were written in the including source file. The <code>import</code>
+    statement, however, creates a separate application module and stores the
+    definitions contained in the target file into the new module. Scripts that
+    want to use definitions in an application module must use an
+    <code>import</code> statement to gain access to the definitions. In the
+    following example, the definitions in <span class='tt'>misc.asps</span> are
+    processed as if they were written locally, while the definitions in
+    <span class='tt'>rotation.asps</span> are stored in application module
+    <code>rotation</code>. Note that the <code>.asps</code> file name suffix is
+    not included in the target names.
+    </p>
+
+    <blockquote><pre>
+include misc
+import rotation</pre>
+    </blockquote>
+
+    <p>
+    The <code>import</code> statement supports the usual <code>as</code> clause
+    to change the name that the module is known by to scripts. For both
+    <code>include</code> and <code>import</code>, if the base name of the file
+    is not a valid identifier (e.g.,
+    <span class='tt'>extra&#8209;stuff.asps</span>), the name can be expressed
+    as a string (i.e., enclosed in single or double quotes). If this is done
+    for an <code>import</code>, the <code>as</code> clause must be used to
+    assign a valid name to the module.
+    </p>
+
+    <blockquote><pre>
+include 'extra-stuff'
+import rotation as rot
+import 'math-trig' as trig</pre>
+    </blockquote>
+
+    <p>
+    The <code>include</code> and <code>import</code> statements may be used in
+    the top-level or included/imported source files. It should be noted that
+    import names are treated as global entities and do not interfere with the
+    names of definitions in the same or other files. This also means that,
+    while a single module can be imported under two or more names (using
+    <code>as</code>), the reverse is not true; different modules cannot be
+    imported as the same name, even if the <code>import</code> statements occur
+    in different source files.
+    </p>
+
+    <p>
+    Asp defines several built-in functions, but to use them, they must be
+    defined in the application's specification file. To facilitate this,
+    application specification source files for these built-in functions are
+    provided and may be included or imported in the specification as described
+    above. Currently, there are five such files. As an example, the standalone
+    application includes all five.
     </p>
 
     <blockquote><pre>
@@ -327,7 +379,7 @@ include math</pre>
     <p>
     The names of the associated C functions for these built-ins all start with
     <q><code>AspLib_</code></q>, so applications should avoid naming their own
-    variables or functions with this prefix. The include files are available in
+    variables or functions with this prefix. The source files are available in
     a common include directory. On Linux systems, this is typically
     <span class='tt'>/usr/include/asps</span>. The <span class='tt'>aspg</span>
     utility searches for included specification files using the directories
@@ -338,29 +390,12 @@ include math</pre>
     </p>
 
     <p>
-    The application developer may also break specifications up into multiple
-    files and use <code>include</code> statements to include the content of one
-    into another. If the name of a file to be included is a valid variable
-    name, the name may be specified without quotes. Otherwise, it must be
-    specified as a string (i.e., enclosed in single or double quotes).
-    Regardless, the <span class='tt'>.asps</span> suffix must be omitted from
-    the name. As an example, the following statements include the files
-    <span class='tt'>my&#8209;utils.asps</span> and
-    <span class='tt'>my&#8209;math.asps</span>.
-    </p>
-
-    <blockquote><pre>
-include 'my-utils'
-include "my-math"</pre>
-    </blockquote>
-
-    <p>
     There are variable and macro names in the generated code that are based on
     the file name of the top-level specification file. Any characters in the
     file name that would be invalid for a variable or symbol name are converted
     to an underscore. So, for example, the <code>AspAppSpec</code> variable for
-    the top-level specification file <span class='tt'>my-api.asps</span> would
-    be named <code>AspAppSpec_my_api</code>.
+    the top-level specification file <span class='tt'>my&#8209;api.asps</span>
+    would be named <code>AspAppSpec_my_api</code>.
     </p>
 
     <p>

@@ -683,13 +683,20 @@ d2 = {'one': 1, 'two': 2, 'three': 3} # a dictionary with 3 kv pairs</pre>
     <p>
     Both Asp and Python support the notion of modules. In Asp (as in Python),
     a module is defined by its source file
-    (<q><span class='tt'>.asp</span></q> file). Modules can be imported via
-    the <code>import</code> and <code>from</code>&hellip;<code>import</code>
+    (<q><span class='tt'>.asp</span></q> file). Modules may also be predefined
+    for a given application. Modules can be imported via the
+    <code>import</code> and <code>from</code>&hellip;<code>import</code>
     statements, including use of the <code>*</code> in the second form. Asp
     defines a special system module (named <code>sys</code>) where the
     application functions and a few special members are defined. When looking
     up the value for a name, if the name cannot be found in the local or global
     scope, the system module is automatically searched.
+    </p>
+
+    <p>
+    When importing an application-defined module, if a module source file with
+    the same base name exists, the application module takes precedence and a
+    warning is issued indicating that the module source file will be ignored.
     </p>
 
     <p>
@@ -2010,6 +2017,11 @@ assert i &lt; size</pre>
     <span class='tt'>/usr/lib/asp</span> directories, the directory in which
     the top-level module resides, and then the <span class='tt'>asp</span>
     directory in the user's home directory, in that order.
+    </p>
+
+    <p>
+    As mentioned previously, the application can define its own modules which
+    take precedence over any source files found via the search path.
     </p>
 
     <p>
