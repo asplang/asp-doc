@@ -688,9 +688,9 @@ d2 = {'one': 1, 'two': 2, 'three': 3} # a dictionary with 3 kv pairs</pre>
     <code>import</code> and <code>from</code>&hellip;<code>import</code>
     statements, including use of the <code>*</code> in the second form. Asp
     defines a special system module (named <code>sys</code>) where the
-    application functions and a few special members are defined. When looking
-    up the value for a name, if the name cannot be found in the local or global
-    scope, the system module is automatically searched.
+    top-level application functions and a few special members are defined. When
+    looking up the value for a name, if the name cannot be found in the local
+    or global scope, the system module is automatically searched.
     </p>
 
     <p>
@@ -698,6 +698,15 @@ d2 = {'one': 1, 'two': 2, 'three': 3} # a dictionary with 3 kv pairs</pre>
     the same base name exists, the application module takes precedence and a
     warning is issued indicating that the module source file will be ignored.
     </p>
+
+    <p>
+    Asp does not support packages (i.e., submodules), so statements like the
+    following are not supported.
+    </p>
+
+    <blockquote><pre>
+import math.trig.hyperbolic # Invalid; submodules not supported</pre>
+    </blockquote>
 
     <p>
     The members of a module can be visited using an iterator.
