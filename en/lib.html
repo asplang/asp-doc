@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang='en'>
+
+  <head>
+
+    <meta name='keywords' content='Asp, Python, Script, Embedded'>
+    <link rel='stylesheet' href='styles.css'>
+
+    <title>Asp Library Reference</title>
+
+  </head>
+
+  <body>
+
+    <center><big>Asp Scripting Platform</big></center>
+
+    <p>
+    <a href='index.html'>Other documents</a>
+    </p>
+
+    <hr>
+
+    <h1>Asp Library Reference</h1>
+
+    <h2>Introduction</h2>
+
+    <p>
+    This document provides details about various libraries that are available
+    for systems using Asp. The libraries are all gathered into a single
+    repository for distribution. However, availability of specific libraries in
+    a given application is at the discretion of the application developer.
+    </p>
+
+    <p>
+    Portions of some of the libraries are implemented as Asp modules. These are
+    typically installed in the <span class='tt'>asp&#8209;lib</span> directory
+    underneath a standard location for include files, e.g.,
+    <span class='tt'>/usr/include/asp&#8209;lib</span> or similar on Linux
+    systems. This directory must be included in the
+    <span class='tt'>ASP_INCLUDE</span> environment variable so that
+    <span class='tt'>aspc</span> will find the modules when they are imported.
+    </p>
+
+    <h3>A note to application developers</h3>
+
+    <p>
+    When incorporating script-callable functions into an application, the
+    developer has choices for how the functions will be made available to
+    scripts. By using <code>include</code> in the application specification
+    file (<q><span class='tt'>*.asps</span></q>), the functions appear in the
+    <code>sys</code> module and can be called by either specifying its name
+    alone or preceding the name with <q><code>sys.</code></q>. If
+    <code>import</code> is used instead, the functions appear in the specified
+    module, the name of which is either the base name of the spec file or the
+    <q><code>as</code></q> name). In this case, the module name must be used to
+    access the function.
+    </p>
+
+    <p>
+    When incorporating the libraries described in this document into
+    applications, it is highly recommended that developers <code>import</code>
+    them. Doing so will provide a common experience to script writers moving
+    between applications.
+    </p>
+
+    <h2>The libraries</h2>
+
+    <p>
+    The following sections cover each library and are presented in alphabetical
+    order by library name. Examples assume that the library has been made
+    available as a module by the given name, requiring an <code>import</code>
+    statement to use the functions in a script. Consult application
+    documentation for any variations on this assumption.
+    </p>
+
+    <h3><code>codec</code></h3>
+
+    <p>
+    The <code>codec</code> library defines functions for encoding and decoding
+    values to/from strings containing their binary equivalent. This
+    functionality is useful for exchanging data with other systems, whether
+    that is via files, communication links, or other means.
+    </p>
+
+    <p>
+    When encoding and decoding to/from binary representations of numeric
+    values, the order of the bytes is important. As such, there are
+    <q>big-endian</q> and <q>little-endian</q> versions of the functions that
+    handle the conversions between numeric values and multi-byte strings. For
+    integer values, there is also a distinction between signed and unsigned
+    values in order to facilitate range checking. The list of available
+    functions is as follows.
+    </p>
+
+    <table>
+      <tr>
+        <th>Endian</th>
+        <th>Signed</th>
+        <th>Unsigned</th>
+        <th>N/A</th>
+      </tr>
+      <tr>
+        <th rowspan='2'>Big</th>
+        <td>
+          <ul style='list-style-type:none; padding:0; margin:0'>
+            <li><code>encode_i16be(x)</code></li>
+            <li><code>decode_i16be(s)</code></li>
+          </ul>
+        </td>
+        <td rowspan='2'>
+          <ul style='list-style-type:none; padding:0; margin:0'>
+            <li><code>encode_u16be(x)</code></li>
+            <li><code>decode_u16be(s)</code></li>
+          </ul>
+        </td>
+        <td>
+          <ul style='list-style-type:none; padding:0; margin:0'>
+            <li><code>encode_f32be(x)</code></li>
+            <li><code>decode_f32be(s)</code></li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <ul style='list-style-type:none; padding:0; margin:0'>
+            <li><code>encode_i32be(x)</code></li>
+            <li><code>decode_i32be(s)</code></li>
+          </ul>
+        </td>
+        <td>
+          <ul style='list-style-type:none; padding:0; margin:0'>
+            <li><code>encode_f64be(x)</code></li>
+            <li><code>decode_f64be(s)</code></li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <th rowspan='2'>Little</th>
+        <td>
+          <ul style='list-style-type:none; padding:0; margin:0'>
+            <li><code>encode_i16le(x)</code></li>
+            <li><code>decode_i16le(s)</code></li>
+          </ul>
+        </td>
+        <td rowspan='2'>
+          <ul style='list-style-type:none; padding:0; margin:0'>
+            <li><code>encode_u16le(x)</code></li>
+            <li><code>decode_u16le(s)</code></li>
+          </ul>
+        </td>
+        <td>
+          <ul style='list-style-type:none; padding:0; margin:0'>
+            <li><code>encode_f32le(x)</code></li>
+            <li><code>decode_f32le(s)</code></li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <ul style='list-style-type:none; padding:0; margin:0'>
+            <li><code>encode_i32le(x)</code></li>
+            <li><code>decode_i32le(s)</code></li>
+          </ul>
+        </td>
+        <td>
+          <ul style='list-style-type:none; padding:0; margin:0'>
+            <li><code>encode_f64le(x)</code></li>
+            <li><code>decode_f64le(s)</code></li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <th>N/A</th>
+        <td>
+          <ul style='list-style-type:none; padding:0; margin:0'>
+            <li><code>encode_i8(x)</code></li>
+            <li><code>decode_i8(s)</code></li>
+          </ul>
+        </td>
+        <td>
+          <ul style='list-style-type:none; padding:0; margin:0'>
+            <li><code>encode_u8(x)</code></li>
+            <li><code>decode_u8(s)</code></li>
+          </ul>
+        </td>
+        <td>
+          <ul style='list-style-type:none; padding:0; margin:0'>
+            <li><code>encode_str(s, len, fill='\0')</code></li>
+            <li><code>decode_str(s)</code></li>
+          </ul>
+        </td>
+      </tr>
+    </table>
+
+    <p>
+    The functions that encode integer values (<code>encode_i&hellip;</code> and
+    <code>encode_u&hellip;</code>) perform range checking on the given values,
+    ending the script with an error if the value is out of range. Therefore, it
+    is highly recommended that scripts ensure integer values are in their valid
+    ranges prior to calling an <code>encode_&hellip;</code> function. Note that
+    since Asp does not directly support unsigned 32&#8209;bit integers, there
+    are no encode/decode functions for this type, and the signed 32&#8209;bit
+    integer versions need not perform any range checking. Likewise, functions
+    that handle floating-point values (<code>encode_f&hellip;</code>) perform
+    no range checking either.
+    </p>
+
+    <p>
+    Decode functions all require a string argument of the applicable size:
+    1 byte for <code>decode_&hellip;8&hellip;</code>, 2 bytes for
+    <code>decode_&hellip;16&hellip;</code>, etc., causing the script to end in
+    error if a field of unexpected type or length is given.
+    </p>
+
+    <p>
+    To round out the library, support for encoding arbitrary-length strings
+    into fixed-length fields is also provided. When encoding, if the source
+    string is longer than the field (denoted by the <code>len</code>
+    parameter), truncation occurs. If the source string is shorter than the
+    field, the remainder of the field is filled with the specified
+    <code>fill</code> character, which must be a single-byte string. When
+    decoding a string field, the resulting string will be the same length as
+    the field unless the field contains a null character (<code>'\0'</code>),
+    in which case characters are extracted up to but not including the null.
+    </p>
+
+    <h3><code>crc</code></h3>
+
+    <p>
+    The <code>crc</code> library provides generic functions for computing a
+    Cyclic Redundancy Code (CRC) for a given string of bytes using a specified
+    algorithm. Like the <code>codec</code> library, the <code>crc</code>
+    library can be used for communication with other systems, especially in
+    cases where the communication is unreliable or should be checked for
+    integrity.
+    </p>
+
+    <p>
+    CRC algorithms are specified via a set of six parameters: width (in
+    bits<a href=#Note-crc-max-width><sup>*</sup></a>), polynominal
+    specification (an integer value, usually expressed in hexadecimal), initial
+    value, pre- and post-reflection indicators (Booleans), and an integer value
+    to exclusive-OR with before producing the final result. Documentation of a
+    CRC tool, and CRC algorithms in general, can be found at
+    <a href='https://reveng.sourceforge.io'> https://reveng.sourceforge.io</a>,
+    including a catalogue of commonly used algorithms.
+    </p>
+
+    <p>
+    Before generating a CRC value from a string, a CRC specification must be
+    created using the <code>make_spec</code> function, which takes six
+    arguments (as described above), and returns an opaque object to be used in
+    subsequent calls to other functions. As of this writing, the returned
+    object is a tuple of values, but this representation should not be relied
+    upon, as it is subject to change in future versions. Here is an example
+    of creating a spec for the CRC used by the XMODEM protocol.
+    </p>
+
+    <blockquote><pre>
+import crc
+xmodem_spec = crc.make_spec(16, 0x1021, 0, False, False, 0)</pre>
+    </blockquote>
+
+    <p>
+    Once a specification object is created, the CRC of a string can be computed
+    easily using the <code>calc</code> function, which accepts the
+    <code>spec</code> and a string, <code>s</code>, as arguments, and returns
+    the CRC value as an integer. If the CRC value needs to be included in a
+    message for communicating with another system, it must be encoded, with,
+    for example, one of the encoding functions available in the
+    <code>codec</code> library.
+    </p>
+
+    <blockquote><pre>
+text = '123456789'
+crc_value = crc.calc(xmodem_spec, text)</pre>
+    </blockquote>
+
+    <p>
+    In the above example, <code>crc_value</code> would be assigned the
+    16&#8209;bit CRC value of <code>0x31C3</code>.
+    </p>
+
+    <p>
+    Often, the message for which a CRC value is sought is broken up into
+    different parts. If this is the case, three routines are available for
+    computing a CRC piecemeal: <code>start</code>, <code>add</code>, and
+    <code>finish</code>. The <code>start</code> function takes a spec (as
+    returned by <code>make_spec</code>) and returns another opaque object
+    representing a calculation session, which is passed to the <code>add</code>
+    and <code>finish</code> functions. The <code>add</code> function takes
+    both the <code>spec</code> and the <code>session</code> as arguments, plus
+    a string, <code>s</code>, to contribute to the computation. It may be
+    called multiple times to incorporate all the fragments of the message, but
+    the fragments must be added in the order in which they appear in the
+    overall message. When all the message's content has been added to the
+    session, the final CRC value can be computed by passing both the
+    <code>spec</code> and <code>session</code> to the <code>finish</code>
+    function and using the returned integer value as described above for the
+    <code>calc</code> function. The following example defines a function that
+    accepts two portions of a message (header and body) and returns the common
+    CRC32/ISO-HDLC value. Note that computing the CRC piecemeal avoids the need
+    to append all the pieces together.
+    </p>
+
+    <blockquote><pre>
+import crc
+hdlc_spec = crc.make_spec \
+    (32, 0x04C11DB7, 0xFFFFFFFF, True, True, 0xFFFFFFFF)
+def construct_message(header, body):
+    session = crc.start(hdlc_spec)
+    crc.add(hdlc_spec, session, header)
+    crc.add(hdlc_spec, session, body)
+    return crc.finish(hdlc_spec, session)</pre>
+    </blockquote>
+
+    <blockquote id='Note-crc-max-width'><sup>*</sup><small>
+    While the C implementation supports up to 64-bit CRCs, Asp's integers are
+    only 32 bits in size, so only CRCs up to 32 bits in length are supported.
+    </small></blockquote>
+
+    <h3><code>sort</code></h3>
+
+    <p>
+    The <code>sort</code> library includes two functions: <code>sort</code> and
+    <code>sorted</code>. Both accept a <code>compare</code> argument which is
+    a function that accepts two arguments and returns an integer value based on
+    how they compare relative to each other. To affect an ascending sort order,
+    the comparison function should return a negative value if the first
+    argument is less than the second, a positive value if the first argument is
+    greater than the second, and zero if they are considered equal.
+    </p>
+
+    <p>
+    The <code>sort</code> function accepts, as its first argument, a list.
+    When called, the items in the list are sorted in place, thus modifying the
+    list. Here is an example usage using a list of integer values.
+    </p>
+
+    <blockquote><pre>
+import sort
+def compare_ints(a, b):
+    return a - b
+items = [42, -7, 3, 6]
+sort.sort(items, compare_ints)
+print(items)</pre>
+    </blockquote>
+
+    <p>
+    The output of the above program would be as follows.
+    </p>
+
+    <blockquote><pre>
+[-7, 3, 6, 42]</pre>
+    </blockquote>
+
+    <p>
+    If it is undesirable to modify the original list, or if the items are not
+    in a list, as long as the items are iterable, the <code>sorted</code>
+    function can be used to return a list of the items in sorted order.
+    </p>
+
+    <p>
+    For example, to sort the characters within a string is possible even though
+    strings are immutable. Here is an example.
+    </p>
+
+    <blockquote><pre>
+import sort
+import string
+def compare(a, b):
+    return a <=> b
+s = 'the quick brown fox jumps over the lazy dog'
+print('%r' % (string.join(sort.sorted(s, compare)),))</pre>
+    </blockquote>
+
+    <p>
+    Because the <code>sorted</code> function returns a list of single-byte
+    strings, this example script uses the <code>string</code> library's
+    <code>join</code> function to reform the output into a single string, as
+    the output confirms.
+    </p>
+
+    <blockquote><pre>
+'        abcdeeefghhijklmnoooopqrrsttuuvwxyz'</pre>
+    </blockquote>
+
+    <p>
+    The implementation uses the insertion sort algorithm which provides a
+    stable sort, keeping elements that compare equal (according to the
+    comparison function) in their original relative order.
+    </p>
+
+    <h3><code>string</code></h3>
+
+    <p>
+    The <code>string</code> library contains many functions for manipulating
+    strings. It is designed after the methods provided by Python's string type,
+    <code>str</code>. Since Asp does not support classes and methods, the
+    string to be operated on is normally given as the first argument to all
+    applicable functions, the one notable exception being the <code>join</code>
+    function.
+    </p>
+
+    <p>
+    For the most part, the functions behave in a manner identical to that of
+    the corresponding Python method, so Python's
+    documentation<sup>*</sup><a href=#Note-string-Python-doc></sup></a>
+    should suffice for usage. Differences between the Asp and Python versions
+    are discussed below.
+    </p>
+
+    <p>
+    A few of Python's string methods accept <code>start</code> and
+    <code>end</code> arguments to specify a contiguous slice within the string
+    under consideration. The functions in this library do not support these
+    arguments because it is simple enough for the caller to slice the string
+    beforehand.
+    </p>
+
+    <p>
+    Several of Python's string methods have no equivalent function in this
+    library. The reason is because they only make sense in the context of the
+    Unicode character set of which Python strings are composed. Recall that Asp
+    strings are sequences of 8&#8209;bit bytes (usually interpreted as ASCII).
+    </p>
+
+    <p>
+    Some of Python's character classification functions are not implemented
+    because they apply to Unicode. Other character classification functions
+    have been added beyond what Python offers; the implementations of these
+    functions use the equivalent C character classification function.
+    </p>
+
+    <p>
+    The following table lists all of the string methods/functions available in
+    Python and Asp, in alphabetical order, indicating which of the two
+    languages provide it.
+    </p>
+
+    <table>
+      <tr>
+        <th>Python string method</th>
+        <th>Asp function</th>
+        <th>Notes</th>
+      </tr>
+      <tr>
+        <td><code>str.capitalize()</code></td>
+        <td>N/A</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.casefold()</code></td>
+        <td>N/A</td>
+        <td>
+        For Asp's non-Unicode strings, <code>lower</code> provides the same
+        functionality.
+        </td>
+      </tr>
+      <tr>
+        <td><code>str.center(width[,&nbsp;fillchar])</code></td>
+        <td><code>center(str,&nbsp;width,&nbsp;fillchar='&nbsp;')</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>N/A</td>
+        <td><code>checktrans(table)</code></td>
+        <td>
+        Returns a Boolean indicating whether the given translation table is
+        valid for use with <code>translate</code>. This function is used
+        internally by both <code>translate</code> and <code>maketrans</code> to
+        validate a table. Note that passing an invalid translation table to
+        either <code>translate</code> or <code>maketrans</code> will end a
+        script with an error.
+        </td>
+      </tr>
+      <tr>
+        <td><code>str.count(sub[,&nbsp;start[,&nbsp;end]])</code></td>
+        <td><code>count(str,&nbsp;sub)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>
+        <code>str.encode(encoding='utf-8',&nbsp;errors='strict')</code>
+        </td>
+        <td>N/A</td>
+        <td>
+        For non-Unicode translations, use <code>maketrans</code> and
+        <code>translate</code>.
+        </td>
+      </tr>
+      <tr>
+        <td><code>str.endswith(suffix[,&nbsp;start[,&nbsp;end]])</code></td>
+        <td><code>endswith(str,&nbsp;suffix)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.expandtabs(tabsize=8)</code></td>
+        <td><code>expandtabs(str,&nbsp;tabsize=8)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.find(sub[,&nbsp;start[,&nbsp;end]])</code></td>
+        <td><code>find(str,&nbsp;sub)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.format(*args,&nbsp;**kwargs)</code></td>
+        <td>N/A</td>
+        <td>
+        In Asp, formatting is provided by the <code>%</code> operator.
+        </td>
+      </tr>
+      <tr>
+        <td><code>str.format_map(mapping,&nbsp;/)</code></td>
+        <td>N/A</td>
+        <td>
+        In Asp, formatting is provided by the <code>%</code> operator.
+        </td>
+      </tr>
+      <tr>
+        <td><code>str.index(sub[,&nbsp;start[,&nbsp;end]])</code></td>
+        <td>N/A</td>
+        <td>
+        Similar functionality that does not end the script with an error is
+        provided by the <code>find</code> function.
+        </td>
+      </tr>
+      <tr>
+        <td><code>str.isalnum()</code></td>
+        <td><code>isalnum(str)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.isalpha()</code></td>
+        <td><code>isalpha(str)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.isascii()</code></td>
+        <td><code>isascii(str)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>N/A</td>
+        <td><code>isblank(str)</code></td>
+        <td>
+        Returns <code>True</code> if all characters in the string are blank
+        characters according to C's <code>isblank</code> function, and there is
+        at least one character, <code>False</code> otherwise.
+        </td>
+      </tr>
+      <tr>
+        <td>N/A</td>
+        <td><code>iscntrl(str)</code></td>
+        <td>
+        Returns <code>True</code> if all characters in the string are control
+        characters according to C's <code>iscntrl</code> function, and there is
+        at least one character, <code>False</code> otherwise.
+        </td>
+      </tr>
+      <tr>
+        <td><code>str.isdecimal()</code></td>
+        <td>N/A</td>
+        <td>
+        For Asp's non-Unicode strings, <code>isdigit</code> provides the same
+        functionality.
+        </td>
+      </tr>
+      <tr>
+        <td><code>str.isdigit()</code></td>
+        <td><code>isdigit(str)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>N/A</td>
+        <td><code>isgraph(str)</code></td>
+        <td>
+        Returns <code>True</code> if all characters in the string have a
+        graphical representation according to C's <code>isgraph</code>
+        function, and there is at least one character, <code>False</code>
+        otherwise.
+        </td>
+      </tr>
+      <tr>
+        <td><code>str.isidentifier()</code></td>
+        <td>N/A</td>
+        <td>
+        Since Asp does not provide code introspection, the usefulness of this
+        function is doubtful.
+        </td>
+      </tr>
+      <tr>
+        <td><code>str.islower()</code></td>
+        <td><code>islower(str)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.isnumeric()</code></td>
+        <td>N/A</td>
+        <td>
+        For Asp's non-Unicode strings, <code>isdigit</code> provides the same
+        functionality.</td>
+        </td>
+      </tr>
+      <tr>
+        <td><code>str.isprintable()</code></td>
+        <td><code>isprintable(str)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>N/A</td>
+        <td><code>ispunct(str)</code></td>
+        <td>
+        Returns <code>True</code> if all characters in the string are
+        punctuation characters according to C's <code>ispunct</code> function,
+        and there is at least one character, <code>False</code> otherwise.
+        </td>
+      </tr>
+      <tr>
+        <td><code>str.isspace()</code></td>
+        <td><code>isspace(str)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.istitle()</code></td>
+        <td>N/A</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.isupper()</code></td>
+        <td><code>isupper(str)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>N/A</td>
+        <td><code>isxdigit(str)</code></td>
+        <td>
+        Returns <code>True</code> if all characters in the string are
+        hexadecimal digit characters according to C's <code>isxdigit</code>
+        function, and there is at least one character, <code>False</code>
+        otherwise.
+        </td>
+      </tr>
+      <tr>
+        <td><code>str.join(iterable)</code></td>
+        <td><code>join(iterable,&nbsp;sep='')</code></td>
+        <td>
+        In the Asp version, the separator is specified as an optional second
+        parameter, defaulting to an empty string.
+        </td>
+      </tr>
+      <tr>
+        <td><code>str.ljust(width[,&nbsp;fillchar])</code></td>
+        <td><code>ljust(str,&nbsp;width,&nbsp;fillchar='&nbsp;')</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.lower()</code></td>
+        <td><code>lower(str)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.lstrip([chars])</code></td>
+        <td><code>lstrip(str,&nbsp;chars=None)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>static&nbsp;str.maketrans(x[,&nbsp;y[,&nbsp;z]])</code></td>
+        <td><code>maketrans(*args)</code></td>
+        <td>
+        The Python version of this function is static, so the Asp version
+        accepts the exact same arguments as Python's method, except that in the
+        Asp version, they are unnamed. Instead of creating a map with integer
+        Unicode code points as the keys, Asp's version uses single-byte strings
+        instead. The <code>checktrans</code> function may be used to validate
+        the table when calling with a single argument.
+        </td>
+      </tr>
+      <tr>
+        <td><code>str.partition(sep)</code></td>
+        <td><code>partition(str,&nbsp;sep)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.removeprefix(prefix,&nbsp;/)</code></td>
+        <td><code>removeprefix(str,&nbsp;prefix)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.removesuffix(prefix,&nbsp;/)</code></td>
+        <td><code>removesuffix(str,&nbsp;prefix)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.replace(old,&nbsp;new,&nbsp;count=-1)</code></td>
+        <td><code>replace(str,&nbsp;old,&nbsp;new,&nbsp;count=-1)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.rfind(sub[,&nbsp;start[,&nbsp;end]])</code></td>
+        <td><code>rfind(str,&nbsp;sub)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.rindex(sub[,&nbsp;start[,&nbsp;end]])</code></td>
+        <td>N/A</td>
+        <td>
+        Similar functionality that does not end the script with an error is
+        provided by the <code>rfind</code> function.
+        </td>
+      </tr>
+      <tr>
+        <td><code>str.rjust(width[,&nbsp;fillchar])</code></td>
+        <td><code>rjust(str,&nbsp;width,&nbsp;fillchar='&nbsp;')</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.rpartition(sep)</code></td>
+        <td><code>rpartition(str,&nbsp;sep)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.rsplit(sep=None,&nbsp;maxsplit=-1)</code></td>
+        <td><code>rsplit(str,&nbsp;sep=None,&nbsp;maxsplit=-1)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.rstrip([chars])</code></td>
+        <td><code>rstrip(str,&nbsp;chars=None)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.split(sep=None,&nbsp;maxsplit=-1)</code></td>
+        <td><code>split(str,&nbsp;sep=None,&nbsp;maxsplit=-1)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.splitlines(keepends=False)</code></td>
+        <td>
+        <code>splitlines(str,&nbsp;keepends=False,&nbsp;ends=None)</code>
+        </td>
+        <td>
+        The Asp version of this function adds an optional <code>ends</code>
+        parameter that specifies an iterable of line endings. If all desired
+        line endings are single bytes, because strings are iterable, a string
+        of line endings may be given. If one or more desired line endings are
+        multi-byte, provide a list or tuple of strings, ensuring that longer
+        strings are placed before shorter ones so that the longest match for a
+        line ending will be found. If <code>ends</code> is left unspecified, or
+        <code>None</code> is given, the default set is used, which is identical
+        to the ones used in Python, less the multi-byte Unicode line ending
+        characters.
+        </td>
+      </tr>
+      <tr>
+        <td><code>str.startswith(prefix[,&nbsp;start[,&nbsp;end]])</code></td>
+        <td><code>startswith(str,&nbsp;prefix)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.strip([chars])</code></td>
+        <td><code>strip(str,&nbsp;chars=None)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.swapcase()</code></td>
+        <td>N/A</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.title()</code></td>
+        <td>N/A</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.translate(table)</code></td>
+        <td><code>translate(str,&nbsp;table)</code></td>
+        <td>
+        See <code>maketrans</code> for a description of the translation table.
+        </td>
+      </tr>
+      <tr>
+        <td><code>str.upper()</code></td>
+        <td><code>upper(str)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><code>str.zfill(width)</code></td>
+        <td><code>zfill(str,&nbsp;width)</code></td>
+        <td></td>
+      </tr>
+      <tr>
+    </table>
+
+    <blockquote id='Note-string-Python-doc'><sup>*</sup><small>
+    Last known location: <a href='https://docs.python.org/3/library/stdtypes.html#string-methods'>https://docs.python.org/3/library/stdtypes.html#string-methods</a>.
+    </small></blockquote>
+
+    <h4>A note to application developers</h4>
+
+    <p>
+    The <code>string</code> library is provided in two parts: the C
+    implementation and a script module. The C implementation handles character
+    classifications; its interface is provided in
+    <span class='tt'>string-class.asps</span>. It should be imported into the
+    application specification using the following statement.
+    </p>
+
+    <blockquote><pre>
+import 'string-class' as string_class</pre>
+    </blockquote>
+
+    <p>
+    The reason for this is because the Asp script module part of this library,
+    <span class='tt'>string.asp</span>, imports this module by the name
+    <code>string_class</code>.
+    </p>
+
+    <hr>
+
+    <p>
+    Copyright (c) 2025 Canadensys Aerospace Corporation
+    </p>
+
+  </body>
+
+</html>
