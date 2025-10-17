@@ -1248,7 +1248,8 @@ AspRunResult AspStep(AspEngine *);</pre>
 bool AspIsReady(const AspEngine *);
 bool AspIsRunning(const AspEngine *);
 bool AspIsRunnable(const AspEngine *);
-size_t AspProgramCounter(const AspEngine *);</pre>
+size_t AspProgramCounter(const AspEngine *);
+AspRunResult AspGetRunResult(const AspEngine *);</pre>
     </blockquote>
 
     <p>
@@ -1260,6 +1261,14 @@ size_t AspProgramCounter(const AspEngine *);</pre>
     running a script, or either one, respectively. The script's program
     counter may be queried using the <code>AspProgramCounter</code> function.
     The value returned is a byte offset into the code.
+    </p>
+
+    <p>
+    Each call to <code>AspStep</code> returns the current run status, but this
+    status value can also be obtained without stepping the engine by calling
+    the <code>AspGetRunResult</code> function. It may also be called after a
+    script completes execution, in which case it returns
+    <code>AspRunResult_Complete</code>.
     </p>
 
     <h4><code>AspLowFreeCount</code></h4>
