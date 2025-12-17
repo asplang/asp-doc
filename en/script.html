@@ -1118,12 +1118,26 @@ result = bits &amp; ~(1 &lt;&lt; n)</pre>
     </p>
 
     <p>
-    Also, in Python, the relational operators (<code>&lt;</code>,
-    <code>&lt;=</code>, <code>&gt;</code>, and <code>&gt;=</code>) are
-    overloaded for sets to mean subset/superset testing. This is not so in
-    Asp; like dictionaries, the relational operators are not defined for sets.
-    If set operations like subset test, set difference, set intersection, etc.
-    are desired, functions can be written to provide this functionality.
+    Also, when using the <code>&lt;</code> operator with a negated expression
+    as the right operand, the operator and right operand must be separated with
+    white space to distinguish the syntax from Asp's insertion operator
+    (<code>&lt;-</code>). Python's style guide (PEP 8) recommends surrounding
+    comparison operators with spaces, and this is a good practice to carry over
+    into Asp.
+    </p>
+
+    <blockquote><pre>
+if i&lt;-3: print('less') # Syntax error
+if i &lt; -3: print('less') # Correct</pre>
+    </blockquote>
+
+    <p>
+    In Python, the relational operators (<code>&lt;</code>, <code>&lt;=</code>,
+    <code>&gt;</code>, and <code>&gt;=</code>) are overloaded for sets to mean
+    subset/superset testing. This is not so in Asp; like dictionaries, the
+    relational operators are not defined for sets. If set operations like
+    subset test, set difference, set intersection, etc. are desired, functions
+    can be written to provide this functionality.
     </p>
 
     <p>
