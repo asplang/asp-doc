@@ -954,8 +954,8 @@ AspRunResult AspReset(AspEngine *);</pre>
     Scripts are executed using the <code>AspStep</code> function. Other
     functions are available to query various aspects of the engine related to
     execution: <code>AspIsReady</code>, <code>AspIsRunning</code>,
-    <code>AspIsRunnable</code>, <code>AspProgramCounter</code>, and
-    <code>AspLowFreeCount</code>.
+    <code>AspIsRunnable</code>, <code>AspProgramCounter</code>,
+    <code>AspFreeCount</code>, and <code>AspLowFreeCount</code>.
     </p>
 
     <h4 id='AspStep'><code>AspStep</code></h4>
@@ -1271,11 +1271,18 @@ AspRunResult AspGetRunResult(const AspEngine *);</pre>
     <code>AspRunResult_Complete</code>.
     </p>
 
-    <h4><code>AspLowFreeCount</code></h4>
+    <h4><code>AspFreeCount</code> and <code>AspLowFreeCount</code></h4>
 
     <blockquote><pre>
+size_t AspFreeCount(const AspEngine *);</pre>
 size_t AspLowFreeCount(const AspEngine *);</pre>
     </blockquote>
+
+    <p>
+    The <code>AspFreeCount</code> function returns the current number of
+    available data entries and can be used to monitor data area usage during
+    execution of a script.
+    </p>
 
     <p>
     The <code>AspLowFreeCount</code> function returns the lowest number of
@@ -1289,9 +1296,9 @@ size_t AspLowFreeCount(const AspEngine *);</pre>
     </p>
 
     <p>
-    If needed, the value returned by this routine can be converted to bytes by
-    multiplying it by the value returned by the <code>AspDataEntrySize</code>
-    function.
+    If needed, the value returned by these routines can be converted to bytes
+    by multiplying it by the value returned by the
+    <code>AspDataEntrySize</code> function.
     </p>
 
     <h4><code>AspCodePageReadCount</code></h4>
@@ -1303,7 +1310,7 @@ size_t AspCodePageReadCount(AspEngine *, bool reset);</pre>
     <p>
     When code paging is enabled, the <code>AspCodePageReadCount</code> function
     returns the number of times the read function (specified in the call to
-    <code>AspSetCodePaging</code>) has been called since the start of
+    <code>AspSetCodePaging</code>) has been called since the start of script
     execution, or since the previous call to <code>AspCodePageReadCount</code>
     with <code>reset</code> set to <code>true</code>. In the unlikely event
     that the read count reaches its maximum value before being reset, it is no
