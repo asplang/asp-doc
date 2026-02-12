@@ -543,13 +543,19 @@ def delete_files_by_time \
       indicates that the script has ended.
       </li>
       <li>
-      To execute the same script again, reinitialize the script context area
-      if applicable, call <code>AspRestart</code>, and then go back to step 8.
+      To execute the same script again, call <code>AspRestart</code>,
+      reinitialize the script context area if applicable, and then go back to
+      step 8.
       </li>
       <li>
-      To prepare to run a different script, reinitialize the script context
-      area if applicable, call <code>AspReset</code>, and then go back to step
-      6.
+      To prepare to run a different script, call <code>AspReset</code>,
+      reinitialize the script context area if applicable, and then go back to
+      step 6.
+      </li>
+      <li>
+      If no more scripts will be executed, the application should still call
+      either <code>AspRestart</code> or <code>AspReset</code> to destroy any
+      application-defined objects remaining after script completion.
       </li>
     </ol>
 
@@ -1935,19 +1941,21 @@ AspDataEntry *AspNewType(AspEngine *, const AspDataEntry *object);</pre>
     For structure (or C++ class) instances that the application manages, the
     type of application object can depend on how the application manages the
     objects. An integer can be used, for example, to index an array of objects.
-    A pointer can be used to reference a dynamically allocated structure. In
-    any case, the integer or pointer must uniquely identify an object in the
-    application.
+    A pointer can be used to reference a structure or class instance in
+    dynamically allocated memory. In any case, the integer or pointer must
+    uniquely identify an object in the application.
     </p>
 
     <p>
     For both integer-type and pointer-type application objects, a
-    <code>destructor</code> function must be specified when they are created.
+    <code>destructor</code> function should be specified when they are created.
     This destructor handles objects whose use count drops to zero during script
-    execution. But note that other objects may remain when a script finishes
-    execution, and must be handled by the application. Further discussion of
-    automatic application object destruction and the responsibilities of the
-    application can be found in the section on
+    execution. Note that other objects may remain when a script finishes
+    execution, and therefore must be handled by the application, typically by
+    calling <code>AspReset</code> or <code>AspRestart</code> after the final
+    call to <code>AspStep</code>. Further discussion of automatic application
+    object destruction and the responsibilities of the application can be found
+    in the section on
     <a href='#AppObjectDestruction'>destruction of application objects</a>.
     </p>
 
@@ -2169,25 +2177,36 @@ void AspUnref(AspEngine *, AspDataEntry *object);</pre>
 
     <p>
     When the use count of an application object is reduced to zero, a
-    <code>destructor</code> function, specified when the object was created,
-    is called. (See the <a href='#ObjectCreation'>object creation</a>
-    section for details.) This function can be used to perform any resource
-    management tasks required to clean up the object. For example, if the
-    object represents an open file, the destructor function would be used to
-    close the file.
+    destructor function, specified when the object was created, is called. (See
+    the <a href='#ObjectCreation'>object creation</a> section for details.)
+    This function can be used to perform any resource management tasks required
+    to clean up the object. For example, if the object represents an open file,
+    the destructor function would be used to close the file. If the object
+    refers to dynamically allocated memory, the destructor would free that
+    memory.
     </p>
 
     <p>
-    Although the destructor function is called for any application object
-    whose use count drops to zero, it should be noted this will not happen for
-    all application objects when a scripts ends, either successfully or in
-    error. For this reason, applications must organize such objects in a way
-    that, upon script completion, any objects that remain can be cleaned up.
-    Failing to deal with application objects remaining after a script finishes
-    execution can result in unintentional memory and/or resource leaks. Of
-    course, an application can decide to allow objects to persist from one
-    script invocation to the next, but ulimately, the application is
-    responsible for resource management in this regard.
+    Although the destructor function is called for any application object whose
+    use count drops to zero, it should be noted that this will not happen for
+    any application objects remaining when a scripts ends, either successfully
+    or in error. To destroy these object successfully, the application must
+    call either <code>AspRestart</code> or <code>AspReset</code>, each of which
+    will call the appropriate destructor function for each remaining
+    application object<a href='#Note-AppObjectDestruction'><sup>*</sup></a>.
+    Failing to call either of these two functions after a script finishes
+    execution can result in unintentional memory and/or resource leaks in the
+    application.
+    </p>
+
+    <p>
+    Of course, an application can also decide to allow application objects to
+    persist from one script invocation to the next, but this will take some
+    care to implement, ensuring that such persistent objects are not
+    unintentionally destroyed when calling <code>AspReset</code> or
+    <code>AspRestart</code>. Management of objects that persist after the
+    execution of a script is beyond the scope of this document. Ulimately, the
+    application is responsible for resource management in this scenario.
     </p>
 
     <p>
@@ -2199,8 +2218,17 @@ void AspUnref(AspEngine *, AspDataEntry *object);</pre>
     time to complete, then instead of causing a delay in the engine, the
     destructor function should note the condition in the context area, and then
     perform the waiting outside of script execution, i.e., between calls to
-    <code>AspStep</code>.
+    <code>AspStep</code>. Care should also be taken to handle such deferred
+    actions after post-execution object destruction (i.e., after calling
+    <code>AspRestart</code> or <code>AspReset</code>) if applicable.
     </p>
+
+    <blockquote id='Note-AppObjectDestruction'><sup>*</sup><small>
+    Calling of app object destructors was added to <code>AspRestart</code> and
+    <code>AspReset</code> in Asp versions 1.1.4.6 and 1.2.5.1 (engine versions
+    1.1.4.5 and 1.2.3.5, respectively). Prior to these versions, applications
+    were responsible for performing residual app object cleanup manually.
+    </small></blockquote>
 
     <h3>Script argument access</h3>
 
